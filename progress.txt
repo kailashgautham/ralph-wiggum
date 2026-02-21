@@ -1,0 +1,3 @@
+# Progress Tracker
+# Each completed task is logged here by the agent.
+# Format: [DONE] Task description
