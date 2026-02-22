@@ -1,3 +1,6 @@
 # Progress Tracker
 # Each completed task is logged here by the agent.
 # Format: [DONE] Task description
+[DONE] Add error handling and retry logic to ralph.sh (handle Claude CLI failures gracefully)
+[DONE] Add logging: write each iteration's summary to a logs/ directory with timestamps
+[DONE] Improve README.md with clear usage instructions, examples, and architecture overview

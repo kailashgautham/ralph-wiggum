@@ -3,7 +3,8 @@
     "allow": [
       "Edit(**)",
       "Read(**)",
-      "Write(**)"
+      "Write(**)",
+      "Bash(git *)"
     ]
   }
 }
