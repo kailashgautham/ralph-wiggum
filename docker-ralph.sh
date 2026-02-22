@@ -1,37 +1,48 @@
 #!/usr/bin/env bash
 # docker-ralph.sh — Run the Ralph loop inside a Docker container for sandboxed execution.
-# Usage: ./docker-ralph.sh [max_iterations]
-#
-# Auth: Set ANTHROPIC_API_KEY env var, OR rely on ~/.claude host config being mounted.
+# Usage:
+#   ./docker-ralph.sh setup            # One-time: export auth from macOS Keychain
+#   ./docker-ralph.sh [max_iterations]  # Run the ralph loop
 
 set -euo pipefail
 
-# Load .env if present
-if [ -f .env ]; then
-  set -a; source .env; set +a
+IMAGE_NAME="ralph-wiggum"
+AUTH_DIR="$(pwd)/.claude-auth"
+
+if [ "${1:-}" = "setup" ]; then
+  echo "Exporting Claude credentials from macOS Keychain..."
+  mkdir -p "$AUTH_DIR"
+
+  # Extract OAuth token from macOS Keychain
+  CREDS=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null) || {
+    echo "Error: No Claude credentials found in Keychain. Run 'claude' and log in first." >&2
+    exit 1
+  }
+  echo "$CREDS" > "$AUTH_DIR/.credentials.json"
+  chmod 600 "$AUTH_DIR/.credentials.json"
+
+  # Copy .claude.json if it exists
+  if [ -f "$HOME/.claude.json" ]; then
+    cp "$HOME/.claude.json" "$AUTH_DIR/.claude.json"
+    chmod 600 "$AUTH_DIR/.claude.json"
+  fi
+
+  echo "Auth exported to .claude-auth/ (gitignored). You can now run: ./docker-ralph.sh"
+  exit 0
 fi
 
-IMAGE_NAME="ralph-wiggum"
-MAX=${1:-20}
-
-# Build the image if needed
-docker build -t "$IMAGE_NAME" .
-
-AUTH_ARGS=()
-if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
-  AUTH_ARGS+=(-e "ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY")
-elif [ -d "$HOME/.claude" ]; then
-  AUTH_ARGS+=(-v "$HOME/.claude:/root/.claude:ro")
-else
-  echo "Error: Set ANTHROPIC_API_KEY or ensure ~/.claude exists for auth." >&2
+# Check auth exists
+if [ ! -f "$AUTH_DIR/.credentials.json" ]; then
+  echo "Error: No auth found. Run './docker-ralph.sh setup' first." >&2
   exit 1
 fi
 
-# Run the ralph loop in a container:
-#   - Mount current directory to /app so Claude edits your real project files
-#   - Pass auth credentials
-#   - Use --rm to clean up the container after exit
+MAX=${1:-20}
+
+# Build the image
+docker build -q -t "$IMAGE_NAME" . > /dev/null
+
 docker run --rm \
   -v "$(pwd):/app" \
-  "${AUTH_ARGS[@]}" \
-  "$IMAGE_NAME" "$MAX"
+  -v "$AUTH_DIR:/tmp/claude-auth:ro" \
+  "$IMAGE_NAME" ./ralph.sh "$MAX"
