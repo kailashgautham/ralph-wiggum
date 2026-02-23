@@ -7,10 +7,15 @@ set -euo pipefail
 # --- help flag ---
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   cat <<'EOF'
-Usage: ./ralph-once.sh
+Usage: ./ralph-once.sh [SUBCOMMAND]
 
 Run a single Ralph iteration: invokes Claude once, commits any changes,
 and exits. Useful for manual step-through of the Ralph loop.
+
+Subcommands:
+  status          Show completed/remaining task counts and task list
+  --dry-run       Print the next task without running anything
+  --help, -h      Show this help and exit
 
 Environment variables:
   CLAUDE_MODEL          Claude model to use (default: claude default)
@@ -23,6 +28,8 @@ Environment variables:
 
 Examples:
   ./ralph-once.sh
+  ./ralph-once.sh status
+  ./ralph-once.sh --dry-run
   CLAUDE_MODEL=claude-opus-4-5 ./ralph-once.sh
   RALPH_TIMEOUT=300 ./ralph-once.sh
 EOF
@@ -30,6 +37,77 @@ EOF
 fi
 
 source "$(dirname "$0")/ralph-lib.sh"
+
+# --- status subcommand ---
+if [ "${1:-}" = "status" ]; then
+  echo "=== Ralph Status ==="
+
+  if [ ! -f "PRD.md" ]; then
+    echo "Error: PRD.md not found." >&2
+    exit 1
+  fi
+
+  # Extract task descriptions from PRD.md (both unchecked and checked boxes)
+  mapfile -t ALL_TASKS < <(grep -E '^\- \[[ x]\] ' PRD.md | sed 's/^- \[[ x]\] //')
+
+  TOTAL=${#ALL_TASKS[@]}
+  COMPLETED=0
+  REMAINING=0
+  REMAINING_TASKS=()
+  COMPLETED_TASKS=()
+
+  for task in "${ALL_TASKS[@]}"; do
+    if grep -qxF "[DONE] $task" progress.txt 2>/dev/null; then
+      COMPLETED=$((COMPLETED + 1))
+      COMPLETED_TASKS+=("$task")
+    else
+      REMAINING=$((REMAINING + 1))
+      REMAINING_TASKS+=("$task")
+    fi
+  done
+
+  echo "Tasks: $TOTAL total, $COMPLETED completed, $REMAINING remaining"
+  echo ""
+
+  if [ ${#COMPLETED_TASKS[@]} -gt 0 ]; then
+    echo "Completed:"
+    for task in "${COMPLETED_TASKS[@]}"; do
+      echo "  [x] $task"
+    done
+    echo ""
+  fi
+
+  if [ ${#REMAINING_TASKS[@]} -gt 0 ]; then
+    echo "Remaining:"
+    for task in "${REMAINING_TASKS[@]}"; do
+      echo "  [ ] $task"
+    done
+  else
+    echo "All tasks complete!"
+  fi
+
+  exit 0
+fi
+
+# --- dry-run subcommand ---
+if [ "${1:-}" = "--dry-run" ]; then
+  if [ ! -f "PRD.md" ]; then
+    echo "Error: PRD.md not found." >&2
+    exit 1
+  fi
+
+  mapfile -t ALL_TASKS < <(grep -E '^\- \[[ x]\] ' PRD.md | sed 's/^- \[[ x]\] //')
+
+  for task in "${ALL_TASKS[@]}"; do
+    if ! grep -qxF "[DONE] $task" progress.txt 2>/dev/null; then
+      echo "Next task: $task"
+      exit 0
+    fi
+  done
+
+  echo "All tasks complete."
+  exit 0
+fi
 
 CLAUDE_MODEL=${CLAUDE_MODEL:-}
 RALPH_TIMEOUT=${RALPH_TIMEOUT:-}
