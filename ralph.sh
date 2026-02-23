@@ -4,6 +4,8 @@
 
 set -uo pipefail
 
+source "$(dirname "$0")/ralph-lib.sh"
+
 # --- status subcommand ---
 if [ "${1:-}" = "status" ]; then
   echo "=== Ralph Status ==="
@@ -226,35 +228,7 @@ for i in $(seq 1 "$MAX"); do
     else
       COMMIT_MSG="ralph: completed task (iteration $i)"
     fi
-    BRANCH_NAME="ralph/iter-${i}-$(date +%Y%m%d_%H%M%S)"
-    git checkout -b "$BRANCH_NAME"
-    git add -A
-    if git commit -m "$(printf '%s\n\nCo-Authored-By: Ralph Wiggum <ralph@wiggum.bot>' "$COMMIT_MSG")"; then
-      echo "Committed changes: $COMMIT_MSG" | tee -a "$RUN_LOG"
-      if git remote get-url origin &>/dev/null; then
-        if git push -u origin "$BRANCH_NAME"; then
-          echo "Pushed branch $BRANCH_NAME to remote." | tee -a "$RUN_LOG"
-          if command -v gh &>/dev/null; then
-            if PR_URL=$(gh pr create --title "$COMMIT_MSG" --body "Automated PR from Ralph iteration $i." --base "$RALPH_BASE_BRANCH" 2>&1); then
-              echo "Created PR: $PR_URL" | tee -a "$RUN_LOG"
-              gh pr merge --squash --delete-branch "$PR_URL" 2>&1 | tee -a "$RUN_LOG" || echo "Warning: PR merge failed." | tee -a "$RUN_LOG"
-            else
-              echo "Warning: gh pr create failed: $PR_URL" | tee -a "$RUN_LOG"
-            fi
-          else
-            echo "Warning: gh CLI not found, skipping PR creation." | tee -a "$RUN_LOG"
-          fi
-        else
-          echo "Warning: git push failed for iteration $i." | tee -a "$RUN_LOG"
-        fi
-      else
-        echo "Info: No remote 'origin' configured, skipping push for iteration $i." | tee -a "$RUN_LOG"
-      fi
-    else
-      echo "Warning: git commit failed for iteration $i." | tee -a "$RUN_LOG"
-    fi
-    git checkout "$RALPH_BASE_BRANCH"
-    git pull --ff-only origin "$RALPH_BASE_BRANCH" 2>/dev/null || true
+    ralph_commit_push_pr "ralph/iter-${i}" "$COMMIT_MSG" "Automated PR from Ralph iteration $i."
   fi
 
   if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
@@ -301,33 +275,7 @@ for i in $(seq 1 "$MAX"); do
     echo "$ARCHIVE_MSG" | tee -a "$RUN_LOG"
 
     if ! git diff --quiet || ! git diff --cached --quiet; then
-      CYCLE_BRANCH="ralph/cycle-rewrite-$(date +%Y%m%d_%H%M%S)"
-      git checkout -b "$CYCLE_BRANCH"
-      git add -A
-      if git commit -m "$(printf 'ralph: rewrite PRD.md tasks for next cycle (iteration %s)\n\nCo-Authored-By: Ralph Wiggum <ralph@wiggum.bot>' "$i")"; then
-        echo "Committed new tasks." | tee -a "$RUN_LOG"
-        if git remote get-url origin &>/dev/null; then
-          if git push -u origin "$CYCLE_BRANCH"; then
-            echo "Pushed branch $CYCLE_BRANCH to remote." | tee -a "$RUN_LOG"
-            if command -v gh &>/dev/null; then
-              if PR_URL=$(gh pr create --title "ralph: rewrite PRD.md tasks for next cycle" --body "Automated cycle rewrite from Ralph iteration $i." --base "$RALPH_BASE_BRANCH" 2>&1); then
-                echo "Created PR: $PR_URL" | tee -a "$RUN_LOG"
-                gh pr merge --squash --delete-branch "$PR_URL" 2>&1 | tee -a "$RUN_LOG" || echo "Warning: PR merge failed." | tee -a "$RUN_LOG"
-              else
-                echo "Warning: gh pr create failed: $PR_URL" | tee -a "$RUN_LOG"
-              fi
-            fi
-          else
-            echo "Warning: git push failed after task rewrite." | tee -a "$RUN_LOG"
-          fi
-        else
-          echo "Info: No remote 'origin' configured, skipping push after task rewrite." | tee -a "$RUN_LOG"
-        fi
-      else
-        echo "Warning: git commit failed after task rewrite." | tee -a "$RUN_LOG"
-      fi
-      git checkout "$RALPH_BASE_BRANCH"
-      git pull --ff-only origin "$RALPH_BASE_BRANCH" 2>/dev/null || true
+      ralph_commit_push_pr "ralph/cycle-rewrite" "ralph: rewrite PRD.md tasks for next cycle (iteration $i)" "Automated cycle rewrite from Ralph iteration $i."
     fi
 
     continue
