@@ -147,6 +147,7 @@ TTY_ARGS=(-i)
 # Resolve the SSH key to mount into the container.
 # Defaults to id_ed25519; override with RALPH_SSH_KEY=/path/to/key.
 RALPH_SSH_KEY="${RALPH_SSH_KEY:-$HOME/.ssh/id_ed25519}"
+ENV_ARGS+=(-e "RALPH_SSH_KEY=${RALPH_SSH_KEY}")
 SSH_VOLUME_ARGS=()
 if [ -f "$RALPH_SSH_KEY" ]; then
   SSH_KEY_BASENAME=$(basename "$RALPH_SSH_KEY")
