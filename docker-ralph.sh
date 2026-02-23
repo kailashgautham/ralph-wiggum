@@ -12,6 +12,45 @@ set -euo pipefail
 IMAGE_NAME="ralph-wiggum"
 AUTH_DIR="$(pwd)/.claude-auth"
 
+# --- help flag ---
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  cat <<'EOF'
+Usage: ./docker-ralph.sh [SUBCOMMAND | max_iterations]
+
+Runs the Ralph agentic loop inside a sandboxed Docker container.
+
+Subcommands:
+  setup           One-time: export Claude credentials from the host into .claude-auth/.
+  cleanup         Remove old Ralph Docker containers, images, and optionally credentials.
+  status          Show task completion status (completed vs. remaining).
+  --dry-run       Print the next task without running Claude, then exit.
+  --help, -h      Show this help message and exit.
+
+Arguments:
+  max_iterations  Maximum number of loop iterations to run (default: 20).
+                  Must be a positive integer.
+
+Key environment variables (forwarded into the container):
+  RALPH_BASE_BRANCH    Git branch to base PRs on (default: main).
+  RALPH_MAX_STALLS     Consecutive no-progress iterations before aborting (default: 3).
+  RALPH_TIMEOUT        Seconds before a Claude invocation is killed (default: none).
+  MAX_RETRIES          Claude CLI retry attempts per iteration (default: 3).
+  RALPH_RETRY_DELAY    Base delay in seconds between retries (default: 5).
+  RALPH_LOG_KEEP       Number of log files to retain in logs/ (default: 50).
+  RALPH_ALLOWED_TOOLS  Comma-separated tools Claude may use (default: Edit,Write,Bash,Read,Glob,Grep).
+  CLAUDE_MODEL         Claude model to use (default: Claude's own default).
+  RALPH_GIT_NAME       Git author name for commits (default: Ralph).
+  RALPH_GIT_EMAIL      Git author email for commits (default: ralph@example.com).
+  RALPH_SSH_KEY        Path to SSH private key to mount into the container (default: ~/.ssh/id_ed25519).
+  GH_TOKEN             GitHub token for the gh CLI (auto-detected if gh is installed).
+
+Example:
+  ./docker-ralph.sh setup
+  RALPH_MAX_STALLS=5 ./docker-ralph.sh 10
+EOF
+  exit 0
+fi
+
 # --- Input validation ---
 
 # Check Docker is installed
@@ -28,7 +67,7 @@ if ! docker info &>/dev/null; then
 fi
 
 # Validate optional max_iterations argument (must be a positive integer if provided)
-if [ -n "${1:-}" ] && [ "${1}" != "setup" ] && [ "${1}" != "cleanup" ] && [ "${1}" != "status" ] && [ "${1}" != "--dry-run" ]; then
+if [ -n "${1:-}" ] && [ "${1}" != "setup" ] && [ "${1}" != "cleanup" ] && [ "${1}" != "status" ] && [ "${1}" != "--dry-run" ] && [ "${1}" != "--help" ] && [ "${1}" != "-h" ]; then
   if ! [[ "${1}" =~ ^[1-9][0-9]*$ ]]; then
     echo "Error: max_iterations must be a positive integer (got '${1}')." >&2
     echo "Usage: $0 [max_iterations]" >&2
