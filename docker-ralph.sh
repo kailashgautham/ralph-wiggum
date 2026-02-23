@@ -5,12 +5,52 @@
 #   ./docker-ralph.sh cleanup          # Remove old Ralph containers and images
 #   ./docker-ralph.sh status           # Show task completion status
 #   ./docker-ralph.sh --dry-run        # Show the next task without running
+#   ./docker-ralph.sh --help           # Show usage information and exit
 #   ./docker-ralph.sh [max_iterations]  # Run the ralph loop
 
 set -euo pipefail
 
 IMAGE_NAME="ralph-wiggum"
 AUTH_DIR="$(pwd)/.claude-auth"
+
+# --- help flag ---
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  cat <<'EOF'
+Usage: ./docker-ralph.sh [--help|-h] [subcommand | max_iterations]
+
+Run the Ralph loop inside a sandboxed Docker container.
+
+Subcommands:
+  setup              Export Claude auth from the host (run once before first use)
+  cleanup            Remove old Ralph Docker containers and images
+  status             Show task completion status (from PRD.md vs progress.txt)
+  --dry-run          Print the next pending task without running Claude
+  --help, -h         Show this help message and exit
+
+Arguments:
+  max_iterations     Maximum number of Claude iterations to run (default: 20)
+
+Key environment variables:
+  RALPH_BASE_BRANCH    Git branch to base PRs on (default: main)
+  RALPH_MAX_STALLS     Stop after N consecutive no-progress iterations (default: 3)
+  RALPH_TIMEOUT        Timeout in seconds for each Claude call (default: none)
+  MAX_RETRIES          Number of Claude retry attempts per iteration (default: 3)
+  RALPH_RETRY_DELAY    Base delay in seconds between retries (default: 5)
+  CLAUDE_MODEL         Claude model to use (default: Claude's default)
+  RALPH_ALLOWED_TOOLS  Comma-separated list of tools Claude may use
+  RALPH_LOG_KEEP       Number of log files to retain (default: 50)
+  RALPH_GIT_NAME       Git commit author name (default: Ralph Wiggum)
+  RALPH_GIT_EMAIL      Git commit author email
+  RALPH_SSH_KEY        Path to SSH private key for git push (default: ~/.ssh/id_ed25519)
+  GH_TOKEN             GitHub token for PR creation via gh CLI
+
+Example:
+  ./docker-ralph.sh setup
+  ./docker-ralph.sh 10
+  RALPH_MAX_STALLS=5 ./docker-ralph.sh
+EOF
+  exit 0
+fi
 
 # --- Input validation ---
 
