@@ -6,6 +6,8 @@ set -euo pipefail
 
 CLAUDE_MODEL=${CLAUDE_MODEL:-}
 RALPH_TIMEOUT=${RALPH_TIMEOUT:-}
+MAX_RETRIES=${MAX_RETRIES:-3}
+RETRY_DELAY=5
 
 LOGS_DIR="logs"
 mkdir -p "$LOGS_DIR"
@@ -104,10 +106,27 @@ if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
   if [ -n "$CLAUDE_MODEL" ]; then
     PLAN_CMD+=(--model "$CLAUDE_MODEL")
   fi
-  if [ -n "$RALPH_TIMEOUT" ]; then
-    timeout "$RALPH_TIMEOUT" "${PLAN_CMD[@]}" 2>&1 | tee -a "$LOGS_DIR/ralph-once.log"
-  else
-    "${PLAN_CMD[@]}" 2>&1 | tee -a "$LOGS_DIR/ralph-once.log"
+  PLAN_ATTEMPT=1
+  PLAN_EXIT=1
+  while [ $PLAN_ATTEMPT -le $MAX_RETRIES ]; do
+    if [ -n "$RALPH_TIMEOUT" ]; then
+      timeout "$RALPH_TIMEOUT" "${PLAN_CMD[@]}" 2>&1 | tee -a "$LOGS_DIR/ralph-once.log"
+    else
+      "${PLAN_CMD[@]}" 2>&1 | tee -a "$LOGS_DIR/ralph-once.log"
+    fi
+    PLAN_EXIT=${PIPESTATUS[0]}
+    if [ "$PLAN_EXIT" -eq 0 ]; then
+      break
+    fi
+    echo "Warning: Planning call failed (attempt $PLAN_ATTEMPT/$MAX_RETRIES, exit code $PLAN_EXIT)" >&2
+    if [ $PLAN_ATTEMPT -lt $MAX_RETRIES ]; then
+      echo "Retrying planning call in ${RETRY_DELAY}s..." >&2
+      sleep $RETRY_DELAY
+    fi
+    PLAN_ATTEMPT=$((PLAN_ATTEMPT + 1))
+  done
+  if [ "$PLAN_EXIT" -ne 0 ]; then
+    echo "Warning: Planning call failed after $MAX_RETRIES attempts. Proceeding with archive/reset." >&2
   fi
 
   # Archive completed progress entries and reset progress.txt for the new cycle.
