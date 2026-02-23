@@ -1,6 +1,8 @@
-FROM node:20-slim
+FROM node:20.19-slim
 
-RUN npm install -g @anthropic-ai/claude-code
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g @anthropic-ai/claude-code@2.1.50
 
 RUN mkdir -p /root/.claude
 

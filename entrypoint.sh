@@ -13,4 +13,11 @@ if [ -f "/tmp/claude-auth/.claude.json" ]; then
   chmod 600 /root/.claude.json
 fi
 
+# Configure git identity for commits
+git config --global user.name "Ralph Wiggum"
+git config --global user.email "ralph@wiggum.bot"
+
+# Trust the mounted repo directory
+git config --global --add safe.directory /app
+
 exec "$@"
