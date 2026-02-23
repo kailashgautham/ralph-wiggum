@@ -166,7 +166,8 @@ for i in $(seq 1 "$MAX"); do
   echo "$ITER_HEADER"
   echo "$ITER_HEADER" >> "$RUN_LOG"
 
-  DONE_BEFORE=$(grep -c '^\[DONE\]' progress.txt 2>/dev/null || echo 0)
+  DONE_BEFORE=$(grep -c '^\[DONE\]' progress.txt 2>/dev/null | tail -1)
+  DONE_BEFORE=${DONE_BEFORE:-0}
 
   OUTPUT=""
   if ! run_claude; then
@@ -177,7 +178,8 @@ for i in $(seq 1 "$MAX"); do
   fi
   echo "$OUTPUT" >> "$RUN_LOG"
 
-  DONE_AFTER=$(grep -c '^\[DONE\]' progress.txt 2>/dev/null || echo 0)
+  DONE_AFTER=$(grep -c '^\[DONE\]' progress.txt 2>/dev/null | tail -1)
+  DONE_AFTER=${DONE_AFTER:-0}
   if [ "$DONE_AFTER" -le "$DONE_BEFORE" ]; then
     STALL_COUNT=$((STALL_COUNT + 1))
     STALL_MSG="Warning: No progress detected in iteration $i (stall $STALL_COUNT/$RALPH_MAX_STALLS)."
