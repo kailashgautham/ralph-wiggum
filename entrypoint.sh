@@ -14,8 +14,8 @@ if [ -f "/tmp/claude-auth/.claude.json" ]; then
 fi
 
 # Configure git identity for commits
-git config --global user.name "Ralph Wiggum"
-git config --global user.email "ralph@wiggum.bot"
+git config --global user.name "Kailash Gautham"
+git config --global user.email "kailash.gautham@gmail.com"
 
 # Fix SSH key permissions (mounted read-only, but ssh is strict about this)
 if [ -f /root/.ssh/id_ed25519 ]; then
