@@ -3,6 +3,8 @@
 # Usage:
 #   ./docker-ralph.sh setup            # One-time: export auth from macOS Keychain
 #   ./docker-ralph.sh cleanup          # Remove old Ralph containers and images
+#   ./docker-ralph.sh status           # Show task completion status
+#   ./docker-ralph.sh --dry-run        # Show the next task without running
 #   ./docker-ralph.sh [max_iterations]  # Run the ralph loop
 
 set -euo pipefail
@@ -26,7 +28,7 @@ if ! docker info &>/dev/null; then
 fi
 
 # Validate optional max_iterations argument (must be a positive integer if provided)
-if [ -n "${1:-}" ] && [ "${1}" != "setup" ] && [ "${1}" != "cleanup" ]; then
+if [ -n "${1:-}" ] && [ "${1}" != "setup" ] && [ "${1}" != "cleanup" ] && [ "${1}" != "status" ] && [ "${1}" != "--dry-run" ]; then
   if ! [[ "${1}" =~ ^[1-9][0-9]*$ ]]; then
     echo "Error: max_iterations must be a positive integer (got '${1}')." >&2
     echo "Usage: $0 [max_iterations]" >&2
@@ -110,6 +112,18 @@ if [ "${1:-}" = "cleanup" ]; then
 
   echo "Cleanup complete."
   exit 0
+fi
+
+if [ "${1:-}" = "status" ] || [ "${1:-}" = "--dry-run" ]; then
+  SUBCMD="${1}"
+
+  # Build the image
+  docker build -q -t "$IMAGE_NAME" . > /dev/null
+
+  docker run --rm \
+    -v "$(pwd):/app:ro" \
+    "$IMAGE_NAME" ./ralph.sh "$SUBCMD"
+  exit $?
 fi
 
 # Check auth exists
