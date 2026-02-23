@@ -38,6 +38,9 @@ RETRY_DELAY=${RALPH_RETRY_DELAY:-5}
 RALPH_ALLOWED_TOOLS=${RALPH_ALLOWED_TOOLS:-"Edit,Write,Bash,Read,Glob,Grep"}
 RALPH_BASE_BRANCH=${RALPH_BASE_BRANCH:-main}
 
+validate_int MAX_RETRIES
+if [ -n "$RALPH_TIMEOUT" ]; then validate_int RALPH_TIMEOUT; fi
+
 LOGS_DIR="logs"
 mkdir -p "$LOGS_DIR"
 RUN_LOG="$LOGS_DIR/once_$(date +%Y%m%d_%H%M%S).log"

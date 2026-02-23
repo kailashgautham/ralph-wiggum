@@ -2,6 +2,18 @@
 # ralph-lib.sh — Shared helper functions for Ralph scripts.
 # Source this file from ralph.sh and ralph-once.sh; do not execute directly.
 
+# validate_int VAR_NAME
+# Checks that the named variable holds a positive integer value.
+# Prints an error and exits 1 if it does not.
+validate_int() {
+  local var_name="$1"
+  local value="${!var_name}"
+  if ! [[ "$value" =~ ^[1-9][0-9]*$ ]]; then
+    echo "Error: $var_name must be a positive integer (got '$value')" >&2
+    exit 1
+  fi
+}
+
 # _ralph_log MSG
 # Prints MSG to stdout. If RUN_LOG is set and non-empty, also appends to it.
 _ralph_log() {
