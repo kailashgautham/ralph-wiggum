@@ -14,8 +14,8 @@ if [ -f "/tmp/claude-auth/.claude.json" ]; then
 fi
 
 # Configure git identity for commits (override with RALPH_GIT_NAME / RALPH_GIT_EMAIL)
-RALPH_GIT_NAME="${RALPH_GIT_NAME:-Kailash Gautham}"
-RALPH_GIT_EMAIL="${RALPH_GIT_EMAIL:-kailash.gautham@gmail.com}"
+RALPH_GIT_NAME="${RALPH_GIT_NAME:-Ralph}"
+RALPH_GIT_EMAIL="${RALPH_GIT_EMAIL:-ralph@example.com}"
 git config --global user.name "${RALPH_GIT_NAME}"
 git config --global user.email "${RALPH_GIT_EMAIL}"
 
