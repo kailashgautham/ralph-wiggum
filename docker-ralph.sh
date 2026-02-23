@@ -42,6 +42,8 @@ Environment variables:
                         (default: Edit,Write,Bash,Read,Glob,Grep)
   RALPH_GIT_NAME        Git author name for commits (default: Ralph)
   RALPH_GIT_EMAIL       Git author email for commits (default: ralph@example.com)
+  RALPH_NO_PR           If non-empty, skip PR creation and leave the branch on
+                        the remote for manual review (default: unset)
   RALPH_SSH_KEY         Path to SSH private key (default: ~/.ssh/id_ed25519)
   GH_TOKEN              GitHub token for PR creation (default: from gh CLI)
 
@@ -193,6 +195,7 @@ ENV_ARGS=()
 [ -n "${RALPH_LOG_KEEP:-}" ]      && ENV_ARGS+=(-e "RALPH_LOG_KEEP=${RALPH_LOG_KEEP}")
 [ -n "${RALPH_GIT_NAME:-}" ]     && ENV_ARGS+=(-e "RALPH_GIT_NAME=${RALPH_GIT_NAME}")
 [ -n "${RALPH_GIT_EMAIL:-}" ]    && ENV_ARGS+=(-e "RALPH_GIT_EMAIL=${RALPH_GIT_EMAIL}")
+[ -n "${RALPH_NO_PR:-}" ]        && ENV_ARGS+=(-e "RALPH_NO_PR=${RALPH_NO_PR}")
 
 # Forward GH_TOKEN for GitHub CLI (gh) inside the container
 if [ -z "${GH_TOKEN:-}" ] && command -v gh &>/dev/null; then

@@ -31,8 +31,11 @@ _ralph_log() {
 # it. After the PR is merged (or if there is no remote), checks out
 # RALPH_BASE_BRANCH and fast-forward pulls.
 #
-# Globals used: RALPH_BASE_BRANCH (required), RUN_LOG (optional — messages are
-# also tee'd to it when set).
+# If RALPH_NO_PR is set to any non-empty value, PR creation and merge are
+# skipped; the branch is pushed and left on the remote for manual review.
+#
+# Globals used: RALPH_BASE_BRANCH (required), RALPH_NO_PR (optional),
+# RUN_LOG (optional — messages are also tee'd to it when set).
 ralph_commit_push_pr() {
   local branch_prefix="$1"
   local commit_msg="$2"
@@ -46,7 +49,9 @@ ralph_commit_push_pr() {
     if git remote get-url origin &>/dev/null; then
       if git push -u origin "$branch_name"; then
         _ralph_log "Pushed branch $branch_name to remote."
-        if command -v gh &>/dev/null; then
+        if [ -n "${RALPH_NO_PR:-}" ]; then
+          _ralph_log "RALPH_NO_PR is set; skipping PR creation. Branch '$branch_name' left on remote for manual review."
+        elif command -v gh &>/dev/null; then
           local pr_url
           if pr_url=$(gh pr create --title "$commit_msg" --body "$pr_body" --base "$RALPH_BASE_BRANCH" 2>&1); then
             _ralph_log "Created PR: $pr_url"
