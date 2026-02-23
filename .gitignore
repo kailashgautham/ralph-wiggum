@@ -1,2 +1,4 @@
 .env
 .claude-auth/
+logs/
+.ralph.lock
