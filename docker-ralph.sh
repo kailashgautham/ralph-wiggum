@@ -130,12 +130,6 @@ ENV_ARGS=()
 [ -n "${MAX_RETRIES:-}" ]       && ENV_ARGS+=(-e "MAX_RETRIES=${MAX_RETRIES}")
 [ -n "${RALPH_MAX_STALLS:-}" ]  && ENV_ARGS+=(-e "RALPH_MAX_STALLS=${RALPH_MAX_STALLS}")
 
-# Forward GH_TOKEN for GitHub CLI (gh) inside the container
-if [ -z "${GH_TOKEN:-}" ] && command -v gh &>/dev/null; then
-  GH_TOKEN=$(gh auth token 2>/dev/null) || true
-fi
-[ -n "${GH_TOKEN:-}" ] && ENV_ARGS+=(-e "GH_TOKEN=${GH_TOKEN}")
-
 # Determine TTY flags: always keep stdin open (-i), but only allocate a
 # pseudo-TTY (-t) when stdout is connected to a terminal.  Passing -t in a
 # non-TTY environment (CI, cron, piped invocation) causes docker to error out.
