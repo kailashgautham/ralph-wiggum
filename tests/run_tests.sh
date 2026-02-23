@@ -13,6 +13,8 @@ set -uo pipefail
 
 TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RALPH_SH="$(dirname "$TESTS_DIR")/ralph.sh"
+RALPH_ONCE_SH="$(dirname "$TESTS_DIR")/ralph-once.sh"
+DOCKER_RALPH_SH="$(dirname "$TESTS_DIR")/docker-ralph.sh"
 
 PASS=0
 FAIL=0
@@ -169,6 +171,46 @@ echo "Test 5: full-line matching does not produce false positives"
     pass "full-line matching does not produce false positives for substring task descriptions"
   else
     fail "full-line matching: dry_output='$dry_output' status_output='$(echo "$status_output" | head -10)'"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Test 6: ralph-once.sh exits non-zero with an error when claude is absent
+# ---------------------------------------------------------------------------
+echo "Test 6: ralph-once.sh exits non-zero when claude is absent from PATH"
+{
+  dir=$(setup_repo)
+  # Use a minimal PATH containing only core system bins; claude is never at /usr/bin or /bin
+  output=$(cd "$dir" && PATH="/usr/bin:/bin" bash "$RALPH_ONCE_SH" 2>&1)
+  exit_code=$?
+  cleanup_repo "$dir"
+  if [ "$exit_code" -ne 0 ] && echo "$output" | grep -q "Error: 'claude' not found"; then
+    pass "ralph-once.sh exits non-zero with 'claude not found' error when claude is absent from PATH"
+  else
+    fail "ralph-once.sh: expected non-zero exit and 'claude not found' error, got: $(echo "$output" | head -5) (exit $exit_code)"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Test 7: docker-ralph.sh prints error and exits 1 for non-integer max_iterations
+# ---------------------------------------------------------------------------
+echo "Test 7: docker-ralph.sh exits 1 for non-integer max_iterations"
+{
+  dir=$(mktemp -d)
+  mkdir -p "$dir/bin"
+  # Provide a mock docker that always exits 0 (satisfies both the install and daemon checks)
+  cat > "$dir/bin/docker" << 'MOCKEOF'
+#!/usr/bin/env bash
+exit 0
+MOCKEOF
+  chmod +x "$dir/bin/docker"
+  output=$(cd "$dir" && PATH="$dir/bin:$PATH" bash "$DOCKER_RALPH_SH" "abc" 2>&1)
+  exit_code=$?
+  rm -rf "$dir"
+  if [ "$exit_code" -eq 1 ] && echo "$output" | grep -q "max_iterations must be a positive integer"; then
+    pass "docker-ralph.sh prints clear error and exits 1 for non-integer max_iterations"
+  else
+    fail "docker-ralph.sh: expected exit 1 and 'max_iterations must be a positive integer', got: $(echo "$output" | head -5) (exit $exit_code)"
   fi
 }
 
