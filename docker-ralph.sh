@@ -12,6 +12,42 @@ set -euo pipefail
 IMAGE_NAME="ralph-wiggum"
 AUTH_DIR="$(pwd)/.claude-auth"
 
+# --- help ---
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  cat <<'EOF'
+Usage: docker-ralph.sh [--help] [setup | cleanup | status | --dry-run | max_iterations]
+
+Run the Ralph loop inside a sandboxed Docker container.
+
+Subcommands:
+  setup        Export Claude credentials from Keychain (macOS) or ~/.claude/.
+  cleanup      Remove Ralph Docker containers and images.
+  status       Show task completion status (completed vs remaining).
+  --dry-run    Print the next pending task and exit without running.
+
+Arguments:
+  max_iterations  Maximum number of iterations to run (default: 20).
+
+Key environment variables:
+  RALPH_BASE_BRANCH   Git branch to merge PRs into (default: main).
+  RALPH_MAX_STALLS    Consecutive stall limit before aborting (default: 3).
+  RALPH_TIMEOUT       Timeout in seconds for each Claude invocation (default: none).
+  MAX_RETRIES         Number of times to retry a failed Claude call (default: 3).
+  RALPH_LOG_KEEP      Number of log files to retain (default: 50).
+  RALPH_GIT_NAME      Git author name for commits (default: existing config).
+  RALPH_GIT_EMAIL     Git author email for commits (default: existing config).
+  CLAUDE_MODEL        Claude model to use (default: claude's default).
+  RALPH_ALLOWED_TOOLS Comma-separated list of tools Claude may use.
+  RALPH_SSH_KEY       Path to SSH private key for git push (default: ~/.ssh/id_ed25519).
+  GH_TOKEN            GitHub token for PR creation (auto-detected from gh CLI).
+
+Example:
+  ./docker-ralph.sh setup
+  ./docker-ralph.sh 10
+EOF
+  exit 0
+fi
+
 # --- Input validation ---
 
 # Check Docker is installed
