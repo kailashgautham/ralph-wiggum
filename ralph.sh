@@ -16,12 +16,6 @@ if [ "${1:-}" = "status" ]; then
   # Extract task descriptions from PRD.md (both unchecked and checked boxes)
   mapfile -t ALL_TASKS < <(grep -E '^\- \[[ x]\] ' PRD.md | sed 's/^- \[[ x]\] //')
 
-  # Extract completed task descriptions from progress.txt
-  DONE_LIST=""
-  if [ -f "progress.txt" ]; then
-    DONE_LIST=$(grep '^\[DONE\]' progress.txt | sed 's/^\[DONE\] //')
-  fi
-
   TOTAL=${#ALL_TASKS[@]}
   COMPLETED=0
   REMAINING=0
@@ -29,7 +23,7 @@ if [ "${1:-}" = "status" ]; then
   COMPLETED_TASKS=()
 
   for task in "${ALL_TASKS[@]}"; do
-    if echo "$DONE_LIST" | grep -qF "$task"; then
+    if grep -qxF "[DONE] $task" progress.txt 2>/dev/null; then
       COMPLETED=$((COMPLETED + 1))
       COMPLETED_TASKS+=("$task")
     else
@@ -70,13 +64,8 @@ if [ "${1:-}" = "--dry-run" ]; then
 
   mapfile -t ALL_TASKS < <(grep -E '^\- \[[ x]\] ' PRD.md | sed 's/^- \[[ x]\] //')
 
-  DONE_LIST=""
-  if [ -f "progress.txt" ]; then
-    DONE_LIST=$(grep '^\[DONE\]' progress.txt | sed 's/^\[DONE\] //')
-  fi
-
   for task in "${ALL_TASKS[@]}"; do
-    if ! echo "$DONE_LIST" | grep -qF "$task"; then
+    if ! grep -qxF "[DONE] $task" progress.txt 2>/dev/null; then
       echo "Next task: $task"
       exit 0
     fi
