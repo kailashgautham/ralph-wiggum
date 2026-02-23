@@ -45,7 +45,7 @@ else
 fi
 
 # Build command as array to avoid shell injection from PROMPT content
-CMD=(claude -p "$PROMPT" --allowedTools "Edit,Write,Bash,Read,Glob,Grep")
+CMD=(claude -p "$PROMPT" --allowedTools "Edit,Write,Bash,Read,Glob,Grep" --verbose)
 if [ -n "$CLAUDE_MODEL" ]; then
   CMD+=(--model "$CLAUDE_MODEL")
 fi
