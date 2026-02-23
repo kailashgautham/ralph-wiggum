@@ -1,3 +1,5 @@
 # Progress Tracker
 # Each completed task is logged here by the agent.
 # Format: [DONE] Task description
+
+[DONE] Fix Dockerfile to copy ralph-lib.sh into the image: the COPY instruction in Dockerfile lists only ralph.sh, ralph-once.sh, and entrypoint.sh, but both ralph.sh and ralph-once.sh source ralph-lib.sh at startup; the container therefore fails immediately with a "No such file or directory" error on every run; add ralph-lib.sh to the COPY line and to the chmod +x line so it is present and executable inside the image
