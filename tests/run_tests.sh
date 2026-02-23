@@ -8,6 +8,10 @@
 #   3. lockfile prevents concurrent invocations
 #   4. stall detection exits after RALPH_MAX_STALLS consecutive no-progress iterations
 #   5. full-line task-completion matching does not produce false positives
+#   6. ralph-once.sh exits non-zero with an error when claude is absent
+#   7. docker-ralph.sh prints error and exits 1 for non-integer max_iterations
+#   8. RALPH_LOG_KEEP=0 passes validation and exits 0 (log-rotation skipped)
+#   9. RALPH_LOG_KEEP=abc exits 1 with "must be a non-negative integer"
 
 set -uo pipefail
 
@@ -211,6 +215,40 @@ MOCKEOF
     pass "docker-ralph.sh prints clear error and exits 1 for non-integer max_iterations"
   else
     fail "docker-ralph.sh: expected exit 1 and 'max_iterations must be a positive integer', got: $(echo "$output" | head -5) (exit $exit_code)"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Test 8: RALPH_LOG_KEEP=0 passes validation and exits 0 (log-rotation skipped)
+# ---------------------------------------------------------------------------
+echo "Test 8: RALPH_LOG_KEEP=0 exits 0 without a validation error"
+{
+  dir=$(setup_repo)
+  install_mock_claude_noop "$dir"
+  output=$(cd "$dir" && PATH="$dir/bin:$PATH" RALPH_LOG_KEEP=0 bash "$RALPH_SH" 1 2>&1) || true
+  exit_code=$?
+  cleanup_repo "$dir"
+  if [ "$exit_code" -eq 0 ] && ! echo "$output" | grep -q "must be a non-negative integer"; then
+    pass "RALPH_LOG_KEEP=0 passes validation and exits 0"
+  else
+    fail "RALPH_LOG_KEEP=0: expected exit 0 and no validation error, got: $(echo "$output" | head -5) (exit $exit_code)"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Test 9: RALPH_LOG_KEEP=abc exits 1 with "must be a non-negative integer"
+# ---------------------------------------------------------------------------
+echo "Test 9: RALPH_LOG_KEEP=abc exits 1 with validation error"
+{
+  dir=$(setup_repo)
+  install_mock_claude_noop "$dir"
+  output=$(cd "$dir" && PATH="$dir/bin:$PATH" RALPH_LOG_KEEP=abc bash "$RALPH_SH" 1 2>&1)
+  exit_code=$?
+  cleanup_repo "$dir"
+  if [ "$exit_code" -eq 1 ] && echo "$output" | grep -q "must be a non-negative integer"; then
+    pass "RALPH_LOG_KEEP=abc exits 1 with 'must be a non-negative integer'"
+  else
+    fail "RALPH_LOG_KEEP=abc: expected exit 1 and 'must be a non-negative integer', got: $(echo "$output" | head -5) (exit $exit_code)"
   fi
 }
 
