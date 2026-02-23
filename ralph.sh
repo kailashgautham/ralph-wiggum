@@ -144,6 +144,12 @@ RALPH_ALLOWED_TOOLS=${RALPH_ALLOWED_TOOLS:-"Edit,Write,Bash,Read,Glob,Grep"}
 RALPH_BASE_BRANCH=${RALPH_BASE_BRANCH:-main}
 RALPH_LOG_KEEP=${RALPH_LOG_KEEP:-50}
 
+validate_int MAX
+validate_int MAX_RETRIES
+validate_int RALPH_MAX_STALLS
+validate_int RALPH_LOG_KEEP
+if [ -n "$RALPH_TIMEOUT" ]; then validate_int RALPH_TIMEOUT; fi
+
 LOGS_DIR="logs"
 mkdir -p "$LOGS_DIR"
 
