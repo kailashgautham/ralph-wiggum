@@ -12,6 +12,46 @@ set -euo pipefail
 IMAGE_NAME="ralph-wiggum"
 AUTH_DIR="$(pwd)/.claude-auth"
 
+# --- help flag ---
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  cat <<'EOF'
+Usage: ./docker-ralph.sh [subcommand|max_iterations]
+
+Run the Ralph loop inside a sandboxed Docker container.
+
+Subcommands:
+  setup           Export Claude credentials from the host for use inside Docker
+  cleanup         Remove old Ralph containers, images, and optionally credentials
+  status          Show task completion status (completed vs remaining)
+  --dry-run       Print the next task without running Claude
+  --help, -h      Show this help message and exit
+
+Arguments:
+  max_iterations  Number of Claude iterations to run (default: 20)
+
+Environment variables:
+  RALPH_BASE_BRANCH    Git branch to base PRs on (default: main)
+  RALPH_MAX_STALLS     Max consecutive no-progress iterations before abort (default: 3)
+  RALPH_TIMEOUT        Timeout in seconds for each Claude invocation (default: none)
+  MAX_RETRIES          Number of retries on Claude failure (default: 3)
+  RALPH_RETRY_DELAY    Base delay in seconds between retries (default: 5)
+  RALPH_LOG_KEEP       Number of log files to retain in logs/ (default: 50)
+  CLAUDE_MODEL         Claude model to use (default: claude's default)
+  RALPH_ALLOWED_TOOLS  Comma-separated list of tools Claude may use
+                       (default: Edit,Write,Bash,Read,Glob,Grep)
+  RALPH_GIT_NAME       Git author name for commits (default: Ralph)
+  RALPH_GIT_EMAIL      Git author email for commits (default: ralph@example.com)
+  RALPH_SSH_KEY        Path to SSH private key for git push (default: ~/.ssh/id_ed25519)
+  GH_TOKEN             GitHub token for PR creation (auto-detected from gh CLI if set)
+
+Example:
+  ./docker-ralph.sh setup
+  ./docker-ralph.sh 10
+  RALPH_MAX_STALLS=5 RALPH_TIMEOUT=300 ./docker-ralph.sh
+EOF
+  exit 0
+fi
+
 # --- Input validation ---
 
 # Check Docker is installed
@@ -28,7 +68,7 @@ if ! docker info &>/dev/null; then
 fi
 
 # Validate optional max_iterations argument (must be a positive integer if provided)
-if [ -n "${1:-}" ] && [ "${1}" != "setup" ] && [ "${1}" != "cleanup" ] && [ "${1}" != "status" ] && [ "${1}" != "--dry-run" ]; then
+if [ -n "${1:-}" ] && [ "${1}" != "setup" ] && [ "${1}" != "cleanup" ] && [ "${1}" != "status" ] && [ "${1}" != "--dry-run" ] && [ "${1}" != "--help" ] && [ "${1}" != "-h" ]; then
   if ! [[ "${1}" =~ ^[1-9][0-9]*$ ]]; then
     echo "Error: max_iterations must be a positive integer (got '${1}')." >&2
     echo "Usage: $0 [max_iterations]" >&2
