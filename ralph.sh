@@ -103,6 +103,7 @@ handle_signal() {
   echo ""
   echo "$msg"
   echo "$msg" >> "$RUN_LOG"
+  rm -f "$LOGS_DIR/claude_output_"*".tmp"
   exit 0
 }
 
