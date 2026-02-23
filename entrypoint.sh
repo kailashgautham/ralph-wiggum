@@ -24,7 +24,7 @@ git config --global user.email "${RALPH_GIT_EMAIL}"
 SSH_KEY_BASENAME=$(basename "${RALPH_SSH_KEY:-id_ed25519}")
 if [ -f "/root/.ssh/${SSH_KEY_BASENAME}" ]; then
   cp "/root/.ssh/${SSH_KEY_BASENAME}" /tmp/ssh_key && chmod 600 /tmp/ssh_key
-  export GIT_SSH_COMMAND="ssh -i /tmp/ssh_key -o StrictHostKeyChecking=no"
+  export GIT_SSH_COMMAND="ssh -i /tmp/ssh_key -o StrictHostKeyChecking=accept-new"
 fi
 
 # Trust the mounted repo directory
