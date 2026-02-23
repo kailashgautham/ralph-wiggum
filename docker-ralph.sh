@@ -147,6 +147,8 @@ ENV_ARGS=()
 [ -n "${RALPH_RETRY_DELAY:-}" ]   && ENV_ARGS+=(-e "RALPH_RETRY_DELAY=${RALPH_RETRY_DELAY}")
 [ -n "${RALPH_BASE_BRANCH:-}" ]   && ENV_ARGS+=(-e "RALPH_BASE_BRANCH=${RALPH_BASE_BRANCH}")
 [ -n "${RALPH_LOG_KEEP:-}" ]      && ENV_ARGS+=(-e "RALPH_LOG_KEEP=${RALPH_LOG_KEEP}")
+[ -n "${RALPH_GIT_NAME:-}" ]     && ENV_ARGS+=(-e "RALPH_GIT_NAME=${RALPH_GIT_NAME}")
+[ -n "${RALPH_GIT_EMAIL:-}" ]    && ENV_ARGS+=(-e "RALPH_GIT_EMAIL=${RALPH_GIT_EMAIL}")
 
 # Forward GH_TOKEN for GitHub CLI (gh) inside the container
 if [ -z "${GH_TOKEN:-}" ] && command -v gh &>/dev/null; then
