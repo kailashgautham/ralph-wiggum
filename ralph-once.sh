@@ -58,14 +58,33 @@ fi
 TMPFILE=$(mktemp)
 trap 'rm -f "$TMPFILE" "$LOCKFILE"' EXIT
 
-set +e
-if [ -n "$RALPH_TIMEOUT" ]; then
-  timeout "$RALPH_TIMEOUT" "${CMD[@]}" 2>&1 | tee "$TMPFILE"
-else
-  "${CMD[@]}" 2>&1 | tee "$TMPFILE"
-fi
-CLAUDE_EXIT=${PIPESTATUS[0]}
-set -e
+ATTEMPT=1
+CLAUDE_EXIT=1
+while [ $ATTEMPT -le $MAX_RETRIES ]; do
+  set +e
+  if [ -n "$RALPH_TIMEOUT" ]; then
+    timeout "$RALPH_TIMEOUT" "${CMD[@]}" 2>&1 | tee "$TMPFILE"
+  else
+    "${CMD[@]}" 2>&1 | tee "$TMPFILE"
+  fi
+  CLAUDE_EXIT=${PIPESTATUS[0]}
+  set -e
+
+  if [ "$CLAUDE_EXIT" -eq 124 ]; then
+    echo "Warning: Claude invocation timed out after ${RALPH_TIMEOUT}s (attempt $ATTEMPT/$MAX_RETRIES)" >&2
+  fi
+  if [ "$CLAUDE_EXIT" -eq 0 ]; then
+    break
+  fi
+  echo "Warning: Claude CLI failed (attempt $ATTEMPT/$MAX_RETRIES, exit code $CLAUDE_EXIT)" >&2
+  if [ $ATTEMPT -lt $MAX_RETRIES ]; then
+    BACKOFF=$(( RETRY_DELAY * (1 << (ATTEMPT - 1)) ))
+    if [ "$BACKOFF" -gt 60 ]; then BACKOFF=60; fi
+    echo "Retrying in ${BACKOFF}s..." >&2
+    sleep "$BACKOFF"
+  fi
+  ATTEMPT=$((ATTEMPT + 1))
+done
 
 OUTPUT=$(cat "$TMPFILE")
 echo "$OUTPUT" >> "$RUN_LOG"
@@ -75,7 +94,7 @@ if [ "$CLAUDE_EXIT" -eq 124 ]; then
   exit 124
 fi
 if [ "$CLAUDE_EXIT" -ne 0 ]; then
-  echo "Error: Claude CLI exited with code $CLAUDE_EXIT" >&2
+  echo "Error: Claude CLI failed after $MAX_RETRIES attempts (exit code $CLAUDE_EXIT)." >&2
   exit "$CLAUDE_EXIT"
 fi
 
