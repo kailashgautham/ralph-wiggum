@@ -157,6 +157,16 @@ else
   echo "         Set RALPH_SSH_KEY to your SSH private key path to enable SSH access." >&2
 fi
 
+# Mount known_hosts if it exists; skip with a warning otherwise so Docker
+# does not error out or create an empty directory in place of the file.
+KNOWN_HOSTS_VOLUME_ARGS=()
+if [ -f "$HOME/.ssh/known_hosts" ]; then
+  KNOWN_HOSTS_VOLUME_ARGS+=(-v "$HOME/.ssh/known_hosts:/root/.ssh/known_hosts:ro")
+else
+  echo "Warning: SSH known_hosts file not found at '$HOME/.ssh/known_hosts'." >&2
+  echo "         SSH host verification will fail inside the container." >&2
+fi
+
 # Run the container, capturing output while still streaming to terminal
 TMPOUT=$(mktemp)
 set +e
@@ -164,7 +174,7 @@ docker run --rm --init "${TTY_ARGS[@]}" \
   -v "$(pwd):/app" \
   -v "$AUTH_DIR:/tmp/claude-auth:ro" \
   "${SSH_VOLUME_ARGS[@]+"${SSH_VOLUME_ARGS[@]}"}" \
-  -v "$HOME/.ssh/known_hosts:/root/.ssh/known_hosts:ro" \
+  "${KNOWN_HOSTS_VOLUME_ARGS[@]+"${KNOWN_HOSTS_VOLUME_ARGS[@]}"}" \
   "${ENV_ARGS[@]+"${ENV_ARGS[@]}"}" \
   "$IMAGE_NAME" ./ralph.sh "$MAX" 2>&1 | tee "$TMPOUT"
 DOCKER_EXIT=${PIPESTATUS[0]}
