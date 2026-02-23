@@ -112,20 +112,24 @@ else
   git add -A
   if git commit -m "$(printf '%s\n\nCo-Authored-By: Ralph Wiggum <ralph@wiggum.bot>' "$COMMIT_MSG")"; then
     echo "Committed changes."
-    if git push -u origin "$BRANCH_NAME"; then
-      echo "Pushed branch $BRANCH_NAME to remote."
-      if command -v gh &>/dev/null; then
-        if PR_URL=$(gh pr create --title "$COMMIT_MSG" --body "Automated PR from Ralph single iteration." --base main 2>&1); then
-          echo "Created PR: $PR_URL"
-          gh pr merge --squash --delete-branch "$PR_URL" 2>&1 || echo "Warning: PR merge failed." >&2
+    if git remote get-url origin &>/dev/null; then
+      if git push -u origin "$BRANCH_NAME"; then
+        echo "Pushed branch $BRANCH_NAME to remote."
+        if command -v gh &>/dev/null; then
+          if PR_URL=$(gh pr create --title "$COMMIT_MSG" --body "Automated PR from Ralph single iteration." --base main 2>&1); then
+            echo "Created PR: $PR_URL"
+            gh pr merge --squash --delete-branch "$PR_URL" 2>&1 || echo "Warning: PR merge failed." >&2
+          else
+            echo "Warning: gh pr create failed: $PR_URL" >&2
+          fi
         else
-          echo "Warning: gh pr create failed: $PR_URL" >&2
+          echo "Warning: gh CLI not found, skipping PR creation." >&2
         fi
       else
-        echo "Warning: gh CLI not found, skipping PR creation." >&2
+        echo "Warning: git push failed." >&2
       fi
     else
-      echo "Warning: git push failed." >&2
+      echo "Info: No remote 'origin' configured, skipping push."
     fi
   else
     echo "Warning: git commit failed." >&2
@@ -181,18 +185,22 @@ if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
     git add -A
     if git commit -m "$(printf 'ralph: rewrite PRD.md tasks for next cycle (single iteration)\n\nCo-Authored-By: Ralph Wiggum <ralph@wiggum.bot>')"; then
       echo "Committed new tasks."
-      if git push -u origin "$CYCLE_BRANCH"; then
-        echo "Pushed branch $CYCLE_BRANCH to remote."
-        if command -v gh &>/dev/null; then
-          if PR_URL=$(gh pr create --title "ralph: rewrite PRD.md tasks for next cycle" --body "Automated cycle rewrite from Ralph single iteration." --base main 2>&1); then
-            echo "Created PR: $PR_URL"
-            gh pr merge --squash --delete-branch "$PR_URL" 2>&1 || echo "Warning: PR merge failed." >&2
-          else
-            echo "Warning: gh pr create failed: $PR_URL" >&2
+      if git remote get-url origin &>/dev/null; then
+        if git push -u origin "$CYCLE_BRANCH"; then
+          echo "Pushed branch $CYCLE_BRANCH to remote."
+          if command -v gh &>/dev/null; then
+            if PR_URL=$(gh pr create --title "ralph: rewrite PRD.md tasks for next cycle" --body "Automated cycle rewrite from Ralph single iteration." --base main 2>&1); then
+              echo "Created PR: $PR_URL"
+              gh pr merge --squash --delete-branch "$PR_URL" 2>&1 || echo "Warning: PR merge failed." >&2
+            else
+              echo "Warning: gh pr create failed: $PR_URL" >&2
+            fi
           fi
+        else
+          echo "Warning: git push failed after task rewrite." >&2
         fi
       else
-        echo "Warning: git push failed after task rewrite." >&2
+        echo "Info: No remote 'origin' configured, skipping push after task rewrite."
       fi
     else
       echo "Warning: git commit failed after task rewrite." >&2
