@@ -146,8 +146,10 @@ run_claude() {
     fi
     echo "Warning: Claude CLI failed (attempt $attempt/$MAX_RETRIES, exit code $exit_code)" >&2
     if [ $attempt -lt $MAX_RETRIES ]; then
-      echo "Retrying in ${RETRY_DELAY}s..." >&2
-      sleep $RETRY_DELAY
+      BACKOFF=$(( RETRY_DELAY * (1 << (attempt - 1)) ))
+      if [ "$BACKOFF" -gt 60 ]; then BACKOFF=60; fi
+      echo "Retrying in ${BACKOFF}s..." >&2
+      sleep "$BACKOFF"
     fi
     attempt=$((attempt + 1))
   done
@@ -236,8 +238,10 @@ for i in $(seq 1 "$MAX"); do
       fi
       echo "Warning: Planning call failed (attempt $PLAN_ATTEMPT/$MAX_RETRIES, exit code $PLAN_EXIT)" | tee -a "$RUN_LOG" >&2
       if [ $PLAN_ATTEMPT -lt $MAX_RETRIES ]; then
-        echo "Retrying planning call in ${RETRY_DELAY}s..." >&2
-        sleep $RETRY_DELAY
+        BACKOFF=$(( RETRY_DELAY * (1 << (PLAN_ATTEMPT - 1)) ))
+        if [ "$BACKOFF" -gt 60 ]; then BACKOFF=60; fi
+        echo "Retrying planning call in ${BACKOFF}s..." >&2
+        sleep "$BACKOFF"
       fi
       PLAN_ATTEMPT=$((PLAN_ATTEMPT + 1))
     done
