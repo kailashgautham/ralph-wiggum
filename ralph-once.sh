@@ -9,6 +9,7 @@ RALPH_TIMEOUT=${RALPH_TIMEOUT:-}
 MAX_RETRIES=${MAX_RETRIES:-3}
 RETRY_DELAY=${RALPH_RETRY_DELAY:-5}
 RALPH_ALLOWED_TOOLS=${RALPH_ALLOWED_TOOLS:-"Edit,Write,Bash,Read,Glob,Grep"}
+RALPH_BASE_BRANCH=${RALPH_BASE_BRANCH:-main}
 
 LOGS_DIR="logs"
 mkdir -p "$LOGS_DIR"
@@ -117,7 +118,7 @@ else
       if git push -u origin "$BRANCH_NAME"; then
         echo "Pushed branch $BRANCH_NAME to remote."
         if command -v gh &>/dev/null; then
-          if PR_URL=$(gh pr create --title "$COMMIT_MSG" --body "Automated PR from Ralph single iteration." --base main 2>&1); then
+          if PR_URL=$(gh pr create --title "$COMMIT_MSG" --body "Automated PR from Ralph single iteration." --base "$RALPH_BASE_BRANCH" 2>&1); then
             echo "Created PR: $PR_URL"
             gh pr merge --squash --delete-branch "$PR_URL" 2>&1 || echo "Warning: PR merge failed." >&2
           else
@@ -135,8 +136,8 @@ else
   else
     echo "Warning: git commit failed." >&2
   fi
-  git checkout main
-  git pull --ff-only origin main 2>/dev/null || true
+  git checkout "$RALPH_BASE_BRANCH"
+  git pull --ff-only origin "$RALPH_BASE_BRANCH" 2>/dev/null || true
 fi
 
 if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
@@ -190,7 +191,7 @@ if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
         if git push -u origin "$CYCLE_BRANCH"; then
           echo "Pushed branch $CYCLE_BRANCH to remote."
           if command -v gh &>/dev/null; then
-            if PR_URL=$(gh pr create --title "ralph: rewrite PRD.md tasks for next cycle" --body "Automated cycle rewrite from Ralph single iteration." --base main 2>&1); then
+            if PR_URL=$(gh pr create --title "ralph: rewrite PRD.md tasks for next cycle" --body "Automated cycle rewrite from Ralph single iteration." --base "$RALPH_BASE_BRANCH" 2>&1); then
               echo "Created PR: $PR_URL"
               gh pr merge --squash --delete-branch "$PR_URL" 2>&1 || echo "Warning: PR merge failed." >&2
             else
@@ -206,8 +207,8 @@ if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
     else
       echo "Warning: git commit failed after task rewrite." >&2
     fi
-    git checkout main
-    git pull --ff-only origin main 2>/dev/null || true
+    git checkout "$RALPH_BASE_BRANCH"
+    git pull --ff-only origin "$RALPH_BASE_BRANCH" 2>/dev/null || true
   fi
 
   exit 0

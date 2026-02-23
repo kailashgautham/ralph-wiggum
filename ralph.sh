@@ -114,6 +114,7 @@ RETRY_DELAY=${RALPH_RETRY_DELAY:-5}
 CLAUDE_MODEL=${CLAUDE_MODEL:-}
 RALPH_TIMEOUT=${RALPH_TIMEOUT:-}
 RALPH_ALLOWED_TOOLS=${RALPH_ALLOWED_TOOLS:-"Edit,Write,Bash,Read,Glob,Grep"}
+RALPH_BASE_BRANCH=${RALPH_BASE_BRANCH:-main}
 
 LOGS_DIR="logs"
 mkdir -p "$LOGS_DIR"
@@ -238,7 +239,7 @@ for i in $(seq 1 "$MAX"); do
         if git push -u origin "$BRANCH_NAME"; then
           echo "Pushed branch $BRANCH_NAME to remote." | tee -a "$RUN_LOG"
           if command -v gh &>/dev/null; then
-            if PR_URL=$(gh pr create --title "$COMMIT_MSG" --body "Automated PR from Ralph iteration $i." --base main 2>&1); then
+            if PR_URL=$(gh pr create --title "$COMMIT_MSG" --body "Automated PR from Ralph iteration $i." --base "$RALPH_BASE_BRANCH" 2>&1); then
               echo "Created PR: $PR_URL" | tee -a "$RUN_LOG"
               gh pr merge --squash --delete-branch "$PR_URL" 2>&1 | tee -a "$RUN_LOG" || echo "Warning: PR merge failed." | tee -a "$RUN_LOG"
             else
@@ -256,8 +257,8 @@ for i in $(seq 1 "$MAX"); do
     else
       echo "Warning: git commit failed for iteration $i." | tee -a "$RUN_LOG"
     fi
-    git checkout main
-    git pull --ff-only origin main 2>/dev/null || true
+    git checkout "$RALPH_BASE_BRANCH"
+    git pull --ff-only origin "$RALPH_BASE_BRANCH" 2>/dev/null || true
   fi
 
   if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
@@ -313,7 +314,7 @@ for i in $(seq 1 "$MAX"); do
           if git push -u origin "$CYCLE_BRANCH"; then
             echo "Pushed branch $CYCLE_BRANCH to remote." | tee -a "$RUN_LOG"
             if command -v gh &>/dev/null; then
-              if PR_URL=$(gh pr create --title "ralph: rewrite PRD.md tasks for next cycle" --body "Automated cycle rewrite from Ralph iteration $i." --base main 2>&1); then
+              if PR_URL=$(gh pr create --title "ralph: rewrite PRD.md tasks for next cycle" --body "Automated cycle rewrite from Ralph iteration $i." --base "$RALPH_BASE_BRANCH" 2>&1); then
                 echo "Created PR: $PR_URL" | tee -a "$RUN_LOG"
                 gh pr merge --squash --delete-branch "$PR_URL" 2>&1 | tee -a "$RUN_LOG" || echo "Warning: PR merge failed." | tee -a "$RUN_LOG"
               else
@@ -329,8 +330,8 @@ for i in $(seq 1 "$MAX"); do
       else
         echo "Warning: git commit failed after task rewrite." | tee -a "$RUN_LOG"
       fi
-      git checkout main
-      git pull --ff-only origin main 2>/dev/null || true
+      git checkout "$RALPH_BASE_BRANCH"
+      git pull --ff-only origin "$RALPH_BASE_BRANCH" 2>/dev/null || true
     fi
 
     continue
