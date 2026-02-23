@@ -22,6 +22,14 @@ if [ ! -f "PRD.md" ]; then
   exit 1
 fi
 
+# --- lockfile: prevent concurrent invocations ---
+LOCKFILE=".ralph.lock"
+exec 9>"$LOCKFILE"
+if ! flock -n 9; then
+  echo "Error: another instance of ralph is already running (lockfile: $LOCKFILE). Aborting." >&2
+  exit 1
+fi
+
 DEFAULT_PROMPT="You are working on a software project. Read PRD.md for the full plan and progress.txt for completed tasks.
 Pick the next uncompleted task from PRD.md, implement it, then append a line to progress.txt in the format:
   [DONE] <task description>
@@ -42,7 +50,7 @@ fi
 
 # Stream output to terminal in real-time while capturing it to a temp file
 TMPFILE=$(mktemp)
-trap 'rm -f "$TMPFILE"' EXIT
+trap 'rm -f "$TMPFILE" "$LOCKFILE"' EXIT
 
 set +e
 if [ -n "$RALPH_TIMEOUT" ]; then
