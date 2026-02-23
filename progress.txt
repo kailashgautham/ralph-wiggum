@@ -1,5 +1,3 @@
 # Progress Tracker
 # Each completed task is logged here by the agent.
 # Format: [DONE] Task description
-
-[DONE] Add kailash.gautham@gmail.com, Kailash Gautham as the main committer and co-authored by ralph. And use a PR and merging workflow.

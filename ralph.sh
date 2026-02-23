@@ -62,7 +62,7 @@ if [ "${1:-}" = "status" ]; then
 fi
 
 # --- pre-flight checks ---
-for _bin in claude git node; do
+for _bin in claude git; do
   if ! command -v "$_bin" &>/dev/null; then
     echo "Error: '$_bin' not found in PATH. Please install it and ensure it is on your PATH." >&2
     exit 1
@@ -88,7 +88,6 @@ RALPH_MAX_STALLS=${RALPH_MAX_STALLS:-3}
 RETRY_DELAY=5
 CLAUDE_MODEL=${CLAUDE_MODEL:-}
 RALPH_TIMEOUT=${RALPH_TIMEOUT:-}
-RALPH_MAIN_BRANCH=${RALPH_MAIN_BRANCH:-main}
 
 LOGS_DIR="logs"
 mkdir -p "$LOGS_DIR"
@@ -108,62 +107,6 @@ handle_signal() {
 
 trap 'handle_signal SIGINT'  INT
 trap 'handle_signal SIGTERM' TERM
-
-# --- GitHub PR helpers ---
-
-# Extract owner/repo from the origin remote URL (supports SSH and HTTPS GitHub remotes).
-get_github_repo() {
-  local remote_url
-  remote_url=$(git remote get-url origin 2>/dev/null || echo "")
-  echo "$remote_url" | sed 's|.*github\.com[:/]||' | sed 's|\.git$||'
-}
-
-# Commit staged+unstaged changes on a new branch, push, open a PR, merge it, then return to main.
-# Usage: pr_commit_and_merge <branch> <commit_msg> [<logfile>]
-pr_commit_and_merge() {
-  local branch="$1"
-  local msg="$2"
-  local logfile="${3:-/dev/null}"
-  local script_dir
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  local full_msg
-  full_msg="$(printf '%s\n\nCo-authored-by: Ralph Wiggum <ralph@wiggum.bot>' "$msg")"
-
-  git checkout -B "$branch"
-  git add -A
-  if git commit \
-      --author "Kailash Gautham <kailash.gautham@gmail.com>" \
-      -m "$full_msg"; then
-    echo "Committed: $msg" | tee -a "$logfile"
-    if git push -u origin "$branch"; then
-      local github_repo
-      github_repo=$(get_github_repo)
-      if [ -n "$github_repo" ] && [ -n "${GH_TOKEN:-}" ]; then
-        local pr_out pr_number
-        pr_out=$(RALPH_GITHUB_REPO="$github_repo" node "$script_dir/ralph-github.js" \
-          create-pr "$branch" "$RALPH_MAIN_BRANCH" "$msg" 2>&1)
-        echo "$pr_out" | tee -a "$logfile"
-        pr_number=$(echo "$pr_out" | grep -E '^[0-9]+$' | head -1)
-        if [ -n "$pr_number" ]; then
-          RALPH_GITHUB_REPO="$github_repo" node "$script_dir/ralph-github.js" \
-            merge-pr "$pr_number" 2>&1 | tee -a "$logfile"
-          echo "PR #$pr_number merged." | tee -a "$logfile"
-        else
-          echo "Warning: Could not determine PR number from create-pr output." >&2
-        fi
-      else
-        echo "Warning: GH_TOKEN not set or origin is not a GitHub repo — skipping PR creation." >&2
-      fi
-    else
-      echo "Warning: git push failed for branch $branch." >&2
-    fi
-    git checkout "$RALPH_MAIN_BRANCH"
-    git pull
-  else
-    echo "Warning: git commit failed." >&2
-    git checkout "$RALPH_MAIN_BRANCH"
-  fi
-}
 
 DEFAULT_PROMPT="You are working on a software project. Read PRD.md for the full plan and progress.txt for completed tasks.
 Pick the next uncompleted task from PRD.md, implement it, then append a line to progress.txt in the format:
@@ -248,7 +191,8 @@ for i in $(seq 1 "$MAX"); do
   fi
 
   if git diff --quiet && git diff --cached --quiet; then
-    echo "No changes to commit for iteration $i." | tee -a "$RUN_LOG"
+    echo "No changes to commit for iteration $i."
+    echo "No changes to commit for iteration $i." >> "$RUN_LOG"
   else
     LAST_DONE=$(grep '^\[DONE\]' progress.txt 2>/dev/null | tail -1 | sed 's/^\[DONE\] //')
     if [ -n "$LAST_DONE" ]; then
@@ -256,7 +200,17 @@ for i in $(seq 1 "$MAX"); do
     else
       COMMIT_MSG="ralph: completed task (iteration $i)"
     fi
-    pr_commit_and_merge "ralph/iter-$i" "$COMMIT_MSG" "$RUN_LOG"
+    git add -A
+    if git commit -m "$COMMIT_MSG"; then
+      echo "Committed changes: $COMMIT_MSG" | tee -a "$RUN_LOG"
+      if git push; then
+        echo "Pushed changes to remote." | tee -a "$RUN_LOG"
+      else
+        echo "Warning: git push failed for iteration $i." | tee -a "$RUN_LOG"
+      fi
+    else
+      echo "Warning: git commit failed for iteration $i." | tee -a "$RUN_LOG"
+    fi
   fi
 
   if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
@@ -303,7 +257,17 @@ for i in $(seq 1 "$MAX"); do
     echo "$ARCHIVE_MSG" | tee -a "$RUN_LOG"
 
     if ! git diff --quiet || ! git diff --cached --quiet; then
-      pr_commit_and_merge "ralph/replan-$i" "ralph: rewrite PRD.md tasks for next cycle (iteration $i)" "$RUN_LOG"
+      git add -A
+      if git commit -m "ralph: rewrite PRD.md tasks for next cycle (iteration $i)"; then
+        echo "Committed new tasks." | tee -a "$RUN_LOG"
+        if git push; then
+          echo "Pushed new tasks to remote." | tee -a "$RUN_LOG"
+        else
+          echo "Warning: git push failed after task rewrite." | tee -a "$RUN_LOG"
+        fi
+      else
+        echo "Warning: git commit failed after task rewrite." | tee -a "$RUN_LOG"
+      fi
     fi
 
     continue
