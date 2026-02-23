@@ -222,10 +222,27 @@ for i in $(seq 1 "$MAX"); do
     if [ -n "$CLAUDE_MODEL" ]; then
       PLAN_CMD+=(--model "$CLAUDE_MODEL")
     fi
-    if [ -n "$RALPH_TIMEOUT" ]; then
-      timeout "$RALPH_TIMEOUT" "${PLAN_CMD[@]}" 2>&1 | tee -a "$RUN_LOG"
-    else
-      "${PLAN_CMD[@]}" 2>&1 | tee -a "$RUN_LOG"
+    PLAN_ATTEMPT=1
+    PLAN_EXIT=1
+    while [ $PLAN_ATTEMPT -le $MAX_RETRIES ]; do
+      if [ -n "$RALPH_TIMEOUT" ]; then
+        timeout "$RALPH_TIMEOUT" "${PLAN_CMD[@]}" 2>&1 | tee -a "$RUN_LOG"
+      else
+        "${PLAN_CMD[@]}" 2>&1 | tee -a "$RUN_LOG"
+      fi
+      PLAN_EXIT=${PIPESTATUS[0]}
+      if [ "$PLAN_EXIT" -eq 0 ]; then
+        break
+      fi
+      echo "Warning: Planning call failed (attempt $PLAN_ATTEMPT/$MAX_RETRIES, exit code $PLAN_EXIT)" | tee -a "$RUN_LOG" >&2
+      if [ $PLAN_ATTEMPT -lt $MAX_RETRIES ]; then
+        echo "Retrying planning call in ${RETRY_DELAY}s..." >&2
+        sleep $RETRY_DELAY
+      fi
+      PLAN_ATTEMPT=$((PLAN_ATTEMPT + 1))
+    done
+    if [ "$PLAN_EXIT" -ne 0 ]; then
+      echo "Warning: Planning call failed after $MAX_RETRIES attempts. Proceeding with archive/reset." | tee -a "$RUN_LOG" >&2
     fi
 
     # Archive completed progress entries and reset progress.txt for the new cycle.
