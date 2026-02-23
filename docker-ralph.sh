@@ -95,6 +95,19 @@ if [ "${1:-}" = "cleanup" ]; then
     docker rmi $DANGLING
   fi
 
+  # Offer to delete .claude-auth/ credentials directory
+  if [ -d "$AUTH_DIR" ]; then
+    echo ""
+    echo "WARNING: '$AUTH_DIR' contains exported Claude credentials."
+    read -r -p "Delete '$AUTH_DIR' and its contents? [y/N] " CONFIRM
+    if [[ "${CONFIRM,,}" == "y" || "${CONFIRM,,}" == "yes" ]]; then
+      rm -rf "$AUTH_DIR"
+      echo "Deleted '$AUTH_DIR'."
+    else
+      echo "Skipped credential cleanup. '$AUTH_DIR' was left on disk."
+    fi
+  fi
+
   echo "Cleanup complete."
   exit 0
 fi
