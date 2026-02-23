@@ -77,9 +77,11 @@ Break your project into small, atomic tasks — each should be completable in a 
 | `progress.txt` | Completed task log (appended by the agent) |
 | `ralph-once.sh` | Run a single Claude iteration manually |
 | `ralph.sh` | Automated loop with retry logic and logging |
+| `ralph-lib.sh` | Sourced helper library with shared functions (validation, git, PR helpers) |
 | `docker-ralph.sh` | Run the loop inside a sandboxed Docker container |
 | `Dockerfile` | Container image definition |
 | `logs/` | Per-run logs written by `ralph.sh` (created automatically) |
+| `tests/run_tests.sh` | Test harness that validates argument handling and core behaviour |
 
 ## Architecture
 
@@ -101,6 +103,16 @@ Each run of `ralph.sh` writes a timestamped log file to `logs/run_YYYYMMDD_HHMMS
 ### Docker sandboxing
 
 `docker-ralph.sh` builds a container image and mounts your project directory into it. Claude credentials are extracted from the macOS Keychain on first setup and stored in `.claude-auth/` (gitignored). The container runs `ralph.sh` against the mounted project files.
+
+### Testing
+
+The `tests/run_tests.sh` script validates argument handling and core behaviour for `ralph.sh`, `ralph-once.sh`, and `docker-ralph.sh`. Run it directly from the repo root:
+
+```bash
+bash tests/run_tests.sh
+```
+
+The harness reports each test as PASS or FAIL and exits non-zero if any test fails. No additional dependencies are required beyond standard POSIX utilities and `flock` (part of `util-linux`, available on most Linux distributions).
 
 ## Tips for writing good tasks
 
