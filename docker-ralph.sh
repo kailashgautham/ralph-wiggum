@@ -142,13 +142,26 @@ fi
 TTY_ARGS=(-i)
 [ -t 1 ] && TTY_ARGS+=(-t)
 
+# Resolve the SSH key to mount into the container.
+# Defaults to id_ed25519; override with RALPH_SSH_KEY=/path/to/key.
+RALPH_SSH_KEY="${RALPH_SSH_KEY:-$HOME/.ssh/id_ed25519}"
+SSH_VOLUME_ARGS=()
+if [ -f "$RALPH_SSH_KEY" ]; then
+  SSH_KEY_BASENAME=$(basename "$RALPH_SSH_KEY")
+  SSH_VOLUME_ARGS+=(-v "$RALPH_SSH_KEY:/root/.ssh/${SSH_KEY_BASENAME}:ro")
+else
+  echo "Warning: SSH key not found at '${RALPH_SSH_KEY}'." >&2
+  echo "         Git push over SSH will likely fail inside the container." >&2
+  echo "         Set RALPH_SSH_KEY to your SSH private key path to enable SSH access." >&2
+fi
+
 # Run the container, capturing output while still streaming to terminal
 TMPOUT=$(mktemp)
 set +e
 docker run --rm --init "${TTY_ARGS[@]}" \
   -v "$(pwd):/app" \
   -v "$AUTH_DIR:/tmp/claude-auth:ro" \
-  -v "$HOME/.ssh/id_ed25519:/root/.ssh/id_ed25519:ro" \
+  "${SSH_VOLUME_ARGS[@]+"${SSH_VOLUME_ARGS[@]}"}" \
   -v "$HOME/.ssh/known_hosts:/root/.ssh/known_hosts:ro" \
   "${ENV_ARGS[@]+"${ENV_ARGS[@]}"}" \
   "$IMAGE_NAME" ./ralph.sh "$MAX" 2>&1 | tee "$TMPOUT"
