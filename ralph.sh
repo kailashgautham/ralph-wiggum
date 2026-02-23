@@ -205,20 +205,24 @@ for i in $(seq 1 "$MAX"); do
     git add -A
     if git commit -m "$(printf '%s\n\nCo-Authored-By: Ralph Wiggum <ralph@wiggum.bot>' "$COMMIT_MSG")"; then
       echo "Committed changes: $COMMIT_MSG" | tee -a "$RUN_LOG"
-      if git push -u origin "$BRANCH_NAME"; then
-        echo "Pushed branch $BRANCH_NAME to remote." | tee -a "$RUN_LOG"
-        if command -v gh &>/dev/null; then
-          if PR_URL=$(gh pr create --title "$COMMIT_MSG" --body "Automated PR from Ralph iteration $i." --base main 2>&1); then
-            echo "Created PR: $PR_URL" | tee -a "$RUN_LOG"
-            gh pr merge --squash --delete-branch "$PR_URL" 2>&1 | tee -a "$RUN_LOG" || echo "Warning: PR merge failed." | tee -a "$RUN_LOG"
+      if git remote get-url origin &>/dev/null; then
+        if git push -u origin "$BRANCH_NAME"; then
+          echo "Pushed branch $BRANCH_NAME to remote." | tee -a "$RUN_LOG"
+          if command -v gh &>/dev/null; then
+            if PR_URL=$(gh pr create --title "$COMMIT_MSG" --body "Automated PR from Ralph iteration $i." --base main 2>&1); then
+              echo "Created PR: $PR_URL" | tee -a "$RUN_LOG"
+              gh pr merge --squash --delete-branch "$PR_URL" 2>&1 | tee -a "$RUN_LOG" || echo "Warning: PR merge failed." | tee -a "$RUN_LOG"
+            else
+              echo "Warning: gh pr create failed: $PR_URL" | tee -a "$RUN_LOG"
+            fi
           else
-            echo "Warning: gh pr create failed: $PR_URL" | tee -a "$RUN_LOG"
+            echo "Warning: gh CLI not found, skipping PR creation." | tee -a "$RUN_LOG"
           fi
         else
-          echo "Warning: gh CLI not found, skipping PR creation." | tee -a "$RUN_LOG"
+          echo "Warning: git push failed for iteration $i." | tee -a "$RUN_LOG"
         fi
       else
-        echo "Warning: git push failed for iteration $i." | tee -a "$RUN_LOG"
+        echo "Info: No remote 'origin' configured, skipping push for iteration $i." | tee -a "$RUN_LOG"
       fi
     else
       echo "Warning: git commit failed for iteration $i." | tee -a "$RUN_LOG"
@@ -276,18 +280,22 @@ for i in $(seq 1 "$MAX"); do
       git add -A
       if git commit -m "$(printf 'ralph: rewrite PRD.md tasks for next cycle (iteration %s)\n\nCo-Authored-By: Ralph Wiggum <ralph@wiggum.bot>' "$i")"; then
         echo "Committed new tasks." | tee -a "$RUN_LOG"
-        if git push -u origin "$CYCLE_BRANCH"; then
-          echo "Pushed branch $CYCLE_BRANCH to remote." | tee -a "$RUN_LOG"
-          if command -v gh &>/dev/null; then
-            if PR_URL=$(gh pr create --title "ralph: rewrite PRD.md tasks for next cycle" --body "Automated cycle rewrite from Ralph iteration $i." --base main 2>&1); then
-              echo "Created PR: $PR_URL" | tee -a "$RUN_LOG"
-              gh pr merge --squash --delete-branch "$PR_URL" 2>&1 | tee -a "$RUN_LOG" || echo "Warning: PR merge failed." | tee -a "$RUN_LOG"
-            else
-              echo "Warning: gh pr create failed: $PR_URL" | tee -a "$RUN_LOG"
+        if git remote get-url origin &>/dev/null; then
+          if git push -u origin "$CYCLE_BRANCH"; then
+            echo "Pushed branch $CYCLE_BRANCH to remote." | tee -a "$RUN_LOG"
+            if command -v gh &>/dev/null; then
+              if PR_URL=$(gh pr create --title "ralph: rewrite PRD.md tasks for next cycle" --body "Automated cycle rewrite from Ralph iteration $i." --base main 2>&1); then
+                echo "Created PR: $PR_URL" | tee -a "$RUN_LOG"
+                gh pr merge --squash --delete-branch "$PR_URL" 2>&1 | tee -a "$RUN_LOG" || echo "Warning: PR merge failed." | tee -a "$RUN_LOG"
+              else
+                echo "Warning: gh pr create failed: $PR_URL" | tee -a "$RUN_LOG"
+              fi
             fi
+          else
+            echo "Warning: git push failed after task rewrite." | tee -a "$RUN_LOG"
           fi
         else
-          echo "Warning: git push failed after task rewrite." | tee -a "$RUN_LOG"
+          echo "Info: No remote 'origin' configured, skipping push after task rewrite." | tee -a "$RUN_LOG"
         fi
       else
         echo "Warning: git commit failed after task rewrite." | tee -a "$RUN_LOG"
