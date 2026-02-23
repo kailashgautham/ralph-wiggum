@@ -158,6 +158,15 @@ else
   echo "         Set RALPH_SSH_KEY to your SSH private key path to enable SSH access." >&2
 fi
 
+# Mount known_hosts if it exists on the host; skip with a warning if absent.
+KNOWN_HOSTS_ARGS=()
+if [ -f "$HOME/.ssh/known_hosts" ]; then
+  KNOWN_HOSTS_ARGS+=(-v "$HOME/.ssh/known_hosts:/root/.ssh/known_hosts:ro")
+else
+  echo "Info: ~/.ssh/known_hosts not found on host; skipping known_hosts mount." >&2
+  echo "      SSH host key verification will rely on keys already baked into the image." >&2
+fi
+
 # Run the container, capturing output while still streaming to terminal
 TMPOUT=$(mktemp)
 set +e
@@ -165,7 +174,7 @@ docker run --rm --init "${TTY_ARGS[@]}" \
   -v "$(pwd):/app" \
   -v "$AUTH_DIR:/tmp/claude-auth:ro" \
   "${SSH_VOLUME_ARGS[@]+"${SSH_VOLUME_ARGS[@]}"}" \
-  -v "$HOME/.ssh/known_hosts:/root/.ssh/known_hosts:ro" \
+  "${KNOWN_HOSTS_ARGS[@]+"${KNOWN_HOSTS_ARGS[@]}"}" \
   "${ENV_ARGS[@]+"${ENV_ARGS[@]}"}" \
   "$IMAGE_NAME" ./ralph.sh "$MAX" 2>&1 | tee "$TMPOUT"
 DOCKER_EXIT=${PIPESTATUS[0]}
