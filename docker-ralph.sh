@@ -125,10 +125,11 @@ docker build -q -t "$IMAGE_NAME" . > /dev/null
 
 # Collect optional -e flags for environment variables that are set on the host
 ENV_ARGS=()
-[ -n "${CLAUDE_MODEL:-}" ]      && ENV_ARGS+=(-e "CLAUDE_MODEL=${CLAUDE_MODEL}")
-[ -n "${RALPH_TIMEOUT:-}" ]     && ENV_ARGS+=(-e "RALPH_TIMEOUT=${RALPH_TIMEOUT}")
-[ -n "${MAX_RETRIES:-}" ]       && ENV_ARGS+=(-e "MAX_RETRIES=${MAX_RETRIES}")
-[ -n "${RALPH_MAX_STALLS:-}" ]  && ENV_ARGS+=(-e "RALPH_MAX_STALLS=${RALPH_MAX_STALLS}")
+[ -n "${CLAUDE_MODEL:-}" ]        && ENV_ARGS+=(-e "CLAUDE_MODEL=${CLAUDE_MODEL}")
+[ -n "${RALPH_TIMEOUT:-}" ]       && ENV_ARGS+=(-e "RALPH_TIMEOUT=${RALPH_TIMEOUT}")
+[ -n "${MAX_RETRIES:-}" ]         && ENV_ARGS+=(-e "MAX_RETRIES=${MAX_RETRIES}")
+[ -n "${RALPH_MAX_STALLS:-}" ]    && ENV_ARGS+=(-e "RALPH_MAX_STALLS=${RALPH_MAX_STALLS}")
+[ -n "${RALPH_ALLOWED_TOOLS:-}" ] && ENV_ARGS+=(-e "RALPH_ALLOWED_TOOLS=${RALPH_ALLOWED_TOOLS}")
 
 # Forward GH_TOKEN for GitHub CLI (gh) inside the container
 if [ -z "${GH_TOKEN:-}" ] && command -v gh &>/dev/null; then
