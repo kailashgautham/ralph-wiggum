@@ -115,9 +115,16 @@ CLAUDE_MODEL=${CLAUDE_MODEL:-}
 RALPH_TIMEOUT=${RALPH_TIMEOUT:-}
 RALPH_ALLOWED_TOOLS=${RALPH_ALLOWED_TOOLS:-"Edit,Write,Bash,Read,Glob,Grep"}
 RALPH_BASE_BRANCH=${RALPH_BASE_BRANCH:-main}
+RALPH_LOG_KEEP=${RALPH_LOG_KEEP:-50}
 
 LOGS_DIR="logs"
 mkdir -p "$LOGS_DIR"
+
+# Rotate old log files: keep only the RALPH_LOG_KEEP most recent, delete the rest.
+if [ "${RALPH_LOG_KEEP}" -gt 0 ]; then
+  (cd "$LOGS_DIR" && ls -t | tail -n +"$((RALPH_LOG_KEEP + 1))" | xargs rm -f)
+fi
+
 RUN_LOG="$LOGS_DIR/run_$(date +%Y%m%d_%H%M%S).log"
 
 CURRENT_ITER=0
