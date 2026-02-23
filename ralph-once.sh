@@ -14,6 +14,28 @@ RALPH_ALLOWED_TOOLS=${RALPH_ALLOWED_TOOLS:-"Edit,Write,Bash,Read,Glob,Grep"}
 RALPH_BASE_BRANCH=${RALPH_BASE_BRANCH:-main}
 
 LOGS_DIR="logs"
+
+# --- help flag ---
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  cat <<'EOF'
+Usage: ./ralph-once.sh [--help|-h]
+
+Run a single Ralph iteration: invokes Claude once to implement the next task from PRD.md.
+
+Key environment variables:
+  RALPH_BASE_BRANCH    Git branch to base PRs on (default: main)
+  RALPH_TIMEOUT        Timeout in seconds for the Claude invocation (default: none)
+  MAX_RETRIES          Number of retry attempts on Claude failure (default: 3)
+  RALPH_RETRY_DELAY    Base delay in seconds between retries (default: 5)
+  CLAUDE_MODEL         Claude model to use (default: claude CLI default)
+  RALPH_ALLOWED_TOOLS  Comma-separated list of allowed tools (default: Edit,Write,Bash,Read,Glob,Grep)
+
+Example:
+  CLAUDE_MODEL=claude-opus-4-6 ./ralph-once.sh
+EOF
+  exit 0
+fi
+
 mkdir -p "$LOGS_DIR"
 RUN_LOG="$LOGS_DIR/once_$(date +%Y%m%d_%H%M%S).log"
 

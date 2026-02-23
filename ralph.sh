@@ -6,6 +6,37 @@ set -uo pipefail
 
 source "$(dirname "$0")/ralph-lib.sh"
 
+# --- help flag ---
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  cat <<'EOF'
+Usage: ./ralph.sh [--help|-h] [--dry-run] [status] [max_iterations]
+
+Run the Ralph agentic loop: iteratively invokes Claude to implement tasks from PRD.md.
+
+Subcommands:
+  status          Show task completion status (completed vs remaining tasks)
+  --dry-run       Print the next uncompleted task and exit without running Claude
+  --help, -h      Show this help message and exit
+
+Arguments:
+  max_iterations  Maximum number of iterations to run (default: 20)
+
+Key environment variables:
+  RALPH_BASE_BRANCH    Git branch to base PRs on (default: main)
+  RALPH_MAX_STALLS     Consecutive no-progress iterations before aborting (default: 3)
+  RALPH_TIMEOUT        Timeout in seconds for each Claude invocation (default: none)
+  MAX_RETRIES          Number of retry attempts on Claude failure (default: 3)
+  RALPH_RETRY_DELAY    Base delay in seconds between retries (default: 5)
+  CLAUDE_MODEL         Claude model to use (default: claude CLI default)
+  RALPH_ALLOWED_TOOLS  Comma-separated list of allowed tools (default: Edit,Write,Bash,Read,Glob,Grep)
+  RALPH_LOG_KEEP       Number of log files to retain (default: 50)
+
+Example:
+  RALPH_MAX_STALLS=5 ./ralph.sh 10
+EOF
+  exit 0
+fi
+
 # --- status subcommand ---
 if [ "${1:-}" = "status" ]; then
   echo "=== Ralph Status ==="
