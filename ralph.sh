@@ -61,6 +61,31 @@ if [ "${1:-}" = "status" ]; then
   exit 0
 fi
 
+# --- dry-run subcommand ---
+if [ "${1:-}" = "--dry-run" ]; then
+  if [ ! -f "PRD.md" ]; then
+    echo "Error: PRD.md not found." >&2
+    exit 1
+  fi
+
+  mapfile -t ALL_TASKS < <(grep -E '^\- \[[ x]\] ' PRD.md | sed 's/^- \[[ x]\] //')
+
+  DONE_LIST=""
+  if [ -f "progress.txt" ]; then
+    DONE_LIST=$(grep '^\[DONE\]' progress.txt | sed 's/^\[DONE\] //')
+  fi
+
+  for task in "${ALL_TASKS[@]}"; do
+    if ! echo "$DONE_LIST" | grep -qF "$task"; then
+      echo "Next task: $task"
+      exit 0
+    fi
+  done
+
+  echo "All tasks complete."
+  exit 0
+fi
+
 # --- pre-flight checks ---
 for _bin in claude git; do
   if ! command -v "$_bin" &>/dev/null; then
