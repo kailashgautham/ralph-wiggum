@@ -11,6 +11,7 @@ RETRY_DELAY=5
 
 LOGS_DIR="logs"
 mkdir -p "$LOGS_DIR"
+RUN_LOG="$LOGS_DIR/once_$(date +%Y%m%d_%H%M%S).log"
 
 # --- pre-flight checks ---
 for _bin in claude git; do
@@ -31,6 +32,9 @@ if ! flock -n 9; then
   echo "Error: another instance of ralph is already running (lockfile: $LOCKFILE). Aborting." >&2
   exit 1
 fi
+
+RUN_HEADER="=== Ralph single iteration === $(date '+%Y-%m-%d %H:%M:%S') ==="
+echo "$RUN_HEADER" | tee -a "$RUN_LOG"
 
 DEFAULT_PROMPT="You are working on a software project. Read PRD.md for the full plan and progress.txt for completed tasks.
 Pick the next uncompleted task from PRD.md, implement it, then append a line to progress.txt in the format:
@@ -64,6 +68,7 @@ CLAUDE_EXIT=${PIPESTATUS[0]}
 set -e
 
 OUTPUT=$(cat "$TMPFILE")
+echo "$OUTPUT" >> "$RUN_LOG"
 
 if [ "$CLAUDE_EXIT" -eq 124 ]; then
   echo "Error: Claude invocation timed out after ${RALPH_TIMEOUT}s" >&2
@@ -98,7 +103,7 @@ fi
 
 if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
   echo ""
-  echo "=== All tasks complete. Generating new tasks... ===" | tee -a "$LOGS_DIR/ralph-once.log"
+  echo "=== All tasks complete. Generating new tasks... ===" | tee -a "$RUN_LOG"
 
   PLAN_PROMPT="Review the codebase in this directory. The project is a self-improving agentic loop called Ralph. All tasks in PRD.md have been completed (see progress.txt). Your job is to review the code for weaknesses, missing features, or further improvements, then REWRITE the Tasks section in PRD.md with a fresh list of at least 5 unchecked improvement tasks in the format '- [ ] task description'. Replace the existing task list entirely with the new one. Do not modify progress.txt or check off any boxes."
 
@@ -110,9 +115,9 @@ if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
   PLAN_EXIT=1
   while [ $PLAN_ATTEMPT -le $MAX_RETRIES ]; do
     if [ -n "$RALPH_TIMEOUT" ]; then
-      timeout "$RALPH_TIMEOUT" "${PLAN_CMD[@]}" 2>&1 | tee -a "$LOGS_DIR/ralph-once.log"
+      timeout "$RALPH_TIMEOUT" "${PLAN_CMD[@]}" 2>&1 | tee -a "$RUN_LOG"
     else
-      "${PLAN_CMD[@]}" 2>&1 | tee -a "$LOGS_DIR/ralph-once.log"
+      "${PLAN_CMD[@]}" 2>&1 | tee -a "$RUN_LOG"
     fi
     PLAN_EXIT=${PIPESTATUS[0]}
     if [ "$PLAN_EXIT" -eq 0 ]; then

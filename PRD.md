@@ -13,4 +13,4 @@ Ralph is a self-improving loop. Each iteration, Claude reads this file and progr
 - [ ] Switch retry delay in ralph.sh to exponential backoff: the current fixed 5-second RETRY_DELAY is too short for API rate-limit errors on later attempts; replace it with exponential backoff (e.g. delay = RETRY_DELAY * 2^(attempt-1), capped at 60 seconds) so repeated failures back off gracefully
 - [ ] Add credentials cleanup to the docker-ralph.sh cleanup subcommand: the cleanup command removes containers and images but leaves .claude-auth/ on disk; after removing Docker artifacts, also delete .claude-auth/ (with a confirmation prompt) so sensitive credentials are not left behind after a Docker teardown
 - [ ] Switch ralph-once.sh to per-run timestamped log files: ralph-once.sh appends all output to a single logs/ralph-once.log that grows unboundedly; create a new timestamped log file per invocation (e.g. logs/once_YYYYMMDD_HHMMSS.log) matching the pattern used by ralph.sh
-
+- [ ] Add kailash.gautham@gmail.com, Kailash Gautham as the main committer and co-authored by ralph. And use a PR and merging workflow.
