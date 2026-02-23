@@ -6,6 +6,32 @@ set -euo pipefail
 
 source "$(dirname "$0")/ralph-lib.sh"
 
+# --- help flag ---
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  cat <<'EOF'
+Usage: ./ralph-once.sh [--help|-h]
+
+Runs a single Ralph iteration: spawns Claude once, commits any changes,
+and optionally creates a PR.
+
+Options:
+  -h, --help        Show this help message and exit
+
+Key environment variables:
+  RALPH_BASE_BRANCH    Git branch to base PRs on (default: main)
+  RALPH_TIMEOUT        Claude timeout in seconds (default: none)
+  MAX_RETRIES          Claude CLI retry attempts (default: 3)
+  RALPH_ALLOWED_TOOLS  Comma-separated list of Claude tools (default: Edit,Write,Bash,Read,Glob,Grep)
+  CLAUDE_MODEL         Claude model to use (default: none, uses CLI default)
+  RALPH_RETRY_DELAY    Base retry delay in seconds (default: 5)
+
+Examples:
+  ./ralph-once.sh                               # Run one Ralph iteration
+  CLAUDE_MODEL=claude-opus-4-6 ./ralph-once.sh  # Run with a specific model
+EOF
+  exit 0
+fi
+
 CLAUDE_MODEL=${CLAUDE_MODEL:-}
 RALPH_TIMEOUT=${RALPH_TIMEOUT:-}
 MAX_RETRIES=${MAX_RETRIES:-3}

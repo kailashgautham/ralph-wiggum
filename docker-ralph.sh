@@ -12,6 +12,44 @@ set -euo pipefail
 IMAGE_NAME="ralph-wiggum"
 AUTH_DIR="$(pwd)/.claude-auth"
 
+# --- help flag (checked before Docker availability so --help always works) ---
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  cat <<'EOF'
+Usage: ./docker-ralph.sh [--help|-h] [setup|cleanup|status|--dry-run] [max_iterations]
+
+Runs the Ralph loop inside a sandboxed Docker container.
+
+Subcommands:
+  setup             Export Claude credentials from Keychain/.claude/ into .claude-auth/
+  cleanup           Remove Ralph Docker containers and images
+  status            Show task completion summary (runs inside Docker)
+  --dry-run         Print the next pending task without running (runs inside Docker)
+
+Options:
+  -h, --help        Show this help message and exit
+
+Key environment variables:
+  RALPH_BASE_BRANCH    Git branch to base PRs on (default: main)
+  RALPH_MAX_STALLS     Consecutive no-progress iterations before abort (default: 3)
+  RALPH_TIMEOUT        Per-iteration Claude timeout in seconds (default: none)
+  MAX_RETRIES          Claude CLI retry attempts per iteration (default: 3)
+  RALPH_LOG_KEEP       Number of log files to retain (default: 50)
+  RALPH_ALLOWED_TOOLS  Comma-separated list of Claude tools (default: Edit,Write,Bash,Read,Glob,Grep)
+  CLAUDE_MODEL         Claude model to use (default: none, uses CLI default)
+  RALPH_SSH_KEY        Path to SSH private key (default: ~/.ssh/id_ed25519)
+  RALPH_GIT_NAME       Git author name for commits inside the container
+  RALPH_GIT_EMAIL      Git author email for commits inside the container
+
+Examples:
+  ./docker-ralph.sh setup         # Export credentials (one-time setup)
+  ./docker-ralph.sh               # Run up to 20 iterations in Docker
+  ./docker-ralph.sh 5             # Run up to 5 iterations in Docker
+  ./docker-ralph.sh status        # Show completion status
+  ./docker-ralph.sh --dry-run     # Show next task without running
+EOF
+  exit 0
+fi
+
 # --- Input validation ---
 
 # Check Docker is installed
@@ -28,7 +66,7 @@ if ! docker info &>/dev/null; then
 fi
 
 # Validate optional max_iterations argument (must be a positive integer if provided)
-if [ -n "${1:-}" ] && [ "${1}" != "setup" ] && [ "${1}" != "cleanup" ] && [ "${1}" != "status" ] && [ "${1}" != "--dry-run" ]; then
+if [ -n "${1:-}" ] && [ "${1}" != "setup" ] && [ "${1}" != "cleanup" ] && [ "${1}" != "status" ] && [ "${1}" != "--dry-run" ] && [ "${1}" != "--help" ] && [ "${1}" != "-h" ]; then
   if ! [[ "${1}" =~ ^[1-9][0-9]*$ ]]; then
     echo "Error: max_iterations must be a positive integer (got '${1}')." >&2
     echo "Usage: $0 [max_iterations]" >&2
