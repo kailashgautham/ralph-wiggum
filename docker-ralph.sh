@@ -112,9 +112,10 @@ docker build -q -t "$IMAGE_NAME" . > /dev/null
 
 # Collect optional -e flags for environment variables that are set on the host
 ENV_ARGS=()
-[ -n "${CLAUDE_MODEL:-}" ]   && ENV_ARGS+=(-e "CLAUDE_MODEL=${CLAUDE_MODEL}")
-[ -n "${RALPH_TIMEOUT:-}" ]  && ENV_ARGS+=(-e "RALPH_TIMEOUT=${RALPH_TIMEOUT}")
-[ -n "${MAX_RETRIES:-}" ]    && ENV_ARGS+=(-e "MAX_RETRIES=${MAX_RETRIES}")
+[ -n "${CLAUDE_MODEL:-}" ]      && ENV_ARGS+=(-e "CLAUDE_MODEL=${CLAUDE_MODEL}")
+[ -n "${RALPH_TIMEOUT:-}" ]     && ENV_ARGS+=(-e "RALPH_TIMEOUT=${RALPH_TIMEOUT}")
+[ -n "${MAX_RETRIES:-}" ]       && ENV_ARGS+=(-e "MAX_RETRIES=${MAX_RETRIES}")
+[ -n "${RALPH_MAX_STALLS:-}" ]  && ENV_ARGS+=(-e "RALPH_MAX_STALLS=${RALPH_MAX_STALLS}")
 
 # Determine TTY flags: always keep stdin open (-i), but only allocate a
 # pseudo-TTY (-t) when stdout is connected to a terminal.  Passing -t in a
@@ -128,7 +129,8 @@ set +e
 docker run --rm --init "${TTY_ARGS[@]}" \
   -v "$(pwd):/app" \
   -v "$AUTH_DIR:/tmp/claude-auth:ro" \
-  -v "$HOME/.ssh:/root/.ssh:ro" \
+  -v "$HOME/.ssh/id_ed25519:/root/.ssh/id_ed25519:ro" \
+  -v "$HOME/.ssh/known_hosts:/root/.ssh/known_hosts:ro" \
   "${ENV_ARGS[@]+"${ENV_ARGS[@]}"}" \
   "$IMAGE_NAME" ./ralph.sh "$MAX" 2>&1 | tee "$TMPOUT"
 DOCKER_EXIT=${PIPESTATUS[0]}

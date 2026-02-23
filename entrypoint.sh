@@ -17,6 +17,12 @@ fi
 git config --global user.name "Ralph Wiggum"
 git config --global user.email "ralph@wiggum.bot"
 
+# Fix SSH key permissions (mounted read-only, but ssh is strict about this)
+if [ -f /root/.ssh/id_ed25519 ]; then
+  cp /root/.ssh/id_ed25519 /tmp/ssh_key && chmod 600 /tmp/ssh_key
+  export GIT_SSH_COMMAND="ssh -i /tmp/ssh_key -o StrictHostKeyChecking=no"
+fi
+
 # Trust the mounted repo directory
 git config --global --add safe.directory /app
 
