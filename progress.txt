@@ -1,3 +1,5 @@
 # Progress Tracker
 # Each completed task is logged here by the agent.
 # Format: [DONE] Task description
+
+[DONE] Fix entrypoint.sh to use RALPH_SSH_KEY for dynamic SSH setup: entrypoint.sh unconditionally checks for /root/.ssh/id_ed25519 and exports GIT_SSH_COMMAND pointing at that path; docker-ralph.sh now mounts whichever key RALPH_SSH_KEY points to under its original basename (e.g. id_rsa), but entrypoint.sh never consults RALPH_SSH_KEY so the GIT_SSH_COMMAND is wrong for any key other than id_ed25519; add RALPH_SSH_KEY to docker-ralph.sh's ENV_ARGS block, then update entrypoint.sh to derive the mounted key path from RALPH_SSH_KEY (defaulting to id_ed25519) so the SSH command is always set up for the correct key
