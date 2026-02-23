@@ -14,6 +14,18 @@ validate_int() {
   fi
 }
 
+# validate_non_negative_int VAR_NAME
+# Checks that the named variable holds a non-negative integer value (0 or greater).
+# Prints an error and exits 1 if it does not.
+validate_non_negative_int() {
+  local var_name="$1"
+  local value="${!var_name}"
+  if ! [[ "$value" =~ ^[0-9]+$ ]]; then
+    echo "Error: $var_name must be a non-negative integer (got '$value')" >&2
+    exit 1
+  fi
+}
+
 # _ralph_log MSG
 # Prints MSG to stdout. If RUN_LOG is set and non-empty, also appends to it.
 _ralph_log() {

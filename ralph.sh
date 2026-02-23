@@ -147,7 +147,7 @@ RALPH_LOG_KEEP=${RALPH_LOG_KEEP:-50}
 validate_int MAX
 validate_int MAX_RETRIES
 validate_int RALPH_MAX_STALLS
-validate_int RALPH_LOG_KEEP
+validate_non_negative_int RALPH_LOG_KEEP
 if [ -n "$RALPH_TIMEOUT" ]; then validate_int RALPH_TIMEOUT; fi
 
 LOGS_DIR="logs"
