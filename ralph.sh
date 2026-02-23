@@ -88,6 +88,7 @@ RALPH_MAX_STALLS=${RALPH_MAX_STALLS:-3}
 RETRY_DELAY=5
 CLAUDE_MODEL=${CLAUDE_MODEL:-}
 RALPH_TIMEOUT=${RALPH_TIMEOUT:-}
+RALPH_ALLOWED_TOOLS=${RALPH_ALLOWED_TOOLS:-"Edit,Write,Bash,Read,Glob,Grep"}
 
 LOGS_DIR="logs"
 mkdir -p "$LOGS_DIR"
@@ -125,7 +126,7 @@ run_claude() {
   local tmpfile="$LOGS_DIR/claude_output_$$.tmp"
   while [ $attempt -le $MAX_RETRIES ]; do
     # Build command as array to avoid shell injection from PROMPT content
-    local CMD=(claude -p "$PROMPT" --allowedTools "Edit,Write,Bash,Read,Glob,Grep" --verbose)
+    local CMD=(claude -p "$PROMPT" --allowedTools "$RALPH_ALLOWED_TOOLS" --verbose)
     if [ -n "$CLAUDE_MODEL" ]; then
       CMD+=(--model "$CLAUDE_MODEL")
     fi
@@ -238,7 +239,7 @@ for i in $(seq 1 "$MAX"); do
 
     PLAN_PROMPT="Review the codebase in this directory. The project is a self-improving agentic loop called Ralph. All tasks in PRD.md have been completed (see progress.txt). Your job is to review the code for weaknesses, missing features, or further improvements, then REWRITE the Tasks section in PRD.md with a fresh list of at least 5 unchecked improvement tasks in the format '- [ ] task description'. Replace the existing task list entirely with the new one. Do not modify progress.txt or check off any boxes."
 
-    PLAN_CMD=(claude -p "$PLAN_PROMPT" --allowedTools "Edit,Write,Bash,Read,Glob,Grep" --verbose)
+    PLAN_CMD=(claude -p "$PLAN_PROMPT" --allowedTools "$RALPH_ALLOWED_TOOLS" --verbose)
     if [ -n "$CLAUDE_MODEL" ]; then
       PLAN_CMD+=(--model "$CLAUDE_MODEL")
     fi
