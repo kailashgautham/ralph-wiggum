@@ -131,6 +131,7 @@ ENV_ARGS=()
 [ -n "${RALPH_MAX_STALLS:-}" ]    && ENV_ARGS+=(-e "RALPH_MAX_STALLS=${RALPH_MAX_STALLS}")
 [ -n "${RALPH_ALLOWED_TOOLS:-}" ] && ENV_ARGS+=(-e "RALPH_ALLOWED_TOOLS=${RALPH_ALLOWED_TOOLS}")
 [ -n "${RALPH_RETRY_DELAY:-}" ]   && ENV_ARGS+=(-e "RALPH_RETRY_DELAY=${RALPH_RETRY_DELAY}")
+[ -n "${RALPH_BASE_BRANCH:-}" ]   && ENV_ARGS+=(-e "RALPH_BASE_BRANCH=${RALPH_BASE_BRANCH}")
 
 # Forward GH_TOKEN for GitHub CLI (gh) inside the container
 if [ -z "${GH_TOKEN:-}" ] && command -v gh &>/dev/null; then
