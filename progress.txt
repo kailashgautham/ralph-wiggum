@@ -1,3 +1,5 @@
 # Progress Tracker
 # Each completed task is logged here by the agent.
 # Format: [DONE] Task description
+
+[DONE] Make git identity configurable via env vars in entrypoint.sh: entrypoint.sh hardcodes a specific person's name and email in `git config --global user.name/email`, making every commit inside the container appear to be authored by that individual regardless of who is running Ralph; add RALPH_GIT_NAME and RALPH_GIT_EMAIL env vars (defaulting to the current values so existing behaviour is preserved), substitute them into the git config calls, and forward both vars from docker-ralph.sh's ENV_ARGS block

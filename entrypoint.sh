@@ -13,9 +13,11 @@ if [ -f "/tmp/claude-auth/.claude.json" ]; then
   chmod 600 /root/.claude.json
 fi
 
-# Configure git identity for commits
-git config --global user.name "Kailash Gautham"
-git config --global user.email "kailash.gautham@gmail.com"
+# Configure git identity for commits (override with RALPH_GIT_NAME / RALPH_GIT_EMAIL)
+RALPH_GIT_NAME="${RALPH_GIT_NAME:-Kailash Gautham}"
+RALPH_GIT_EMAIL="${RALPH_GIT_EMAIL:-kailash.gautham@gmail.com}"
+git config --global user.name "${RALPH_GIT_NAME}"
+git config --global user.email "${RALPH_GIT_EMAIL}"
 
 # Fix SSH key permissions (mounted read-only, but ssh is strict about this)
 # Derive the mounted key path from RALPH_SSH_KEY (defaulting to id_ed25519)
