@@ -280,34 +280,7 @@ for i in $(seq 1 "$MAX"); do
 
     PLAN_PROMPT="Review the codebase in this directory. The project is a self-improving agentic loop called Ralph. All tasks in PRD.md have been completed (see progress.txt). Your job is to review the code for weaknesses, missing features, or further improvements, then REWRITE the Tasks section in PRD.md with a fresh list of at least 5 unchecked improvement tasks in the format '- [ ] task description'. Replace the existing task list entirely with the new one. Do not modify progress.txt or check off any boxes."
 
-    PLAN_CMD=(claude -p "$PLAN_PROMPT" --allowedTools "$RALPH_ALLOWED_TOOLS" --verbose)
-    if [ -n "$CLAUDE_MODEL" ]; then
-      PLAN_CMD+=(--model "$CLAUDE_MODEL")
-    fi
-    PLAN_ATTEMPT=1
-    PLAN_EXIT=1
-    while [ $PLAN_ATTEMPT -le $MAX_RETRIES ]; do
-      if [ -n "$RALPH_TIMEOUT" ]; then
-        timeout "$RALPH_TIMEOUT" "${PLAN_CMD[@]}" 2>&1 | tee -a "$RUN_LOG"
-      else
-        "${PLAN_CMD[@]}" 2>&1 | tee -a "$RUN_LOG"
-      fi
-      PLAN_EXIT=${PIPESTATUS[0]}
-      if [ "$PLAN_EXIT" -eq 0 ]; then
-        break
-      fi
-      echo "Warning: Planning call failed (attempt $PLAN_ATTEMPT/$MAX_RETRIES, exit code $PLAN_EXIT)" | tee -a "$RUN_LOG" >&2
-      if [ $PLAN_ATTEMPT -lt $MAX_RETRIES ]; then
-        BACKOFF=$(( RETRY_DELAY * (1 << (PLAN_ATTEMPT - 1)) ))
-        if [ "$BACKOFF" -gt 60 ]; then BACKOFF=60; fi
-        echo "Retrying planning call in ${BACKOFF}s..." >&2
-        sleep "$BACKOFF"
-      fi
-      PLAN_ATTEMPT=$((PLAN_ATTEMPT + 1))
-    done
-    if [ "$PLAN_EXIT" -ne 0 ]; then
-      echo "Warning: Planning call failed after $MAX_RETRIES attempts. Proceeding with archive/reset." | tee -a "$RUN_LOG" >&2
-    fi
+    ralph_run_planning_call "$PLAN_PROMPT"
 
     # Archive completed progress entries and reset progress.txt for the new cycle.
     ARCHIVE_FILE="$LOGS_DIR/progress_archive_$(date +%Y%m%d_%H%M%S).txt"

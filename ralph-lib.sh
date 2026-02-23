@@ -90,3 +90,45 @@ ralph_commit_push_pr() {
   git checkout "$RALPH_BASE_BRANCH"
   git pull --ff-only origin "$RALPH_BASE_BRANCH" 2>/dev/null || true
 }
+
+# ralph_run_planning_call PROMPT
+# Invokes Claude with PROMPT for the planning/task-generation phase.
+# Retries up to MAX_RETRIES times with exponential backoff, logging output to
+# RUN_LOG (when set). Includes --verbose so planning-phase tool calls are
+# visible. Logs a warning and returns 1 if all attempts fail (non-fatal:
+# callers are expected to proceed with archive/reset regardless).
+#
+# Globals used: CLAUDE_MODEL, RALPH_TIMEOUT, RALPH_ALLOWED_TOOLS,
+#               MAX_RETRIES, RETRY_DELAY, RUN_LOG
+ralph_run_planning_call() {
+  local prompt="$1"
+  local max_retries="${MAX_RETRIES:-3}"
+  local retry_delay="${RETRY_DELAY:-5}"
+  local plan_cmd=(claude -p "$prompt" --allowedTools "${RALPH_ALLOWED_TOOLS:-Edit,Write,Bash,Read,Glob,Grep}" --verbose)
+  if [ -n "${CLAUDE_MODEL:-}" ]; then
+    plan_cmd+=(--model "$CLAUDE_MODEL")
+  fi
+  local attempt=1
+  local exit_code=1
+  while [ $attempt -le $max_retries ]; do
+    if [ -n "${RALPH_TIMEOUT:-}" ]; then
+      timeout "$RALPH_TIMEOUT" "${plan_cmd[@]}" 2>&1 | tee -a "${RUN_LOG:-/dev/null}"
+    else
+      "${plan_cmd[@]}" 2>&1 | tee -a "${RUN_LOG:-/dev/null}"
+    fi
+    exit_code=${PIPESTATUS[0]}
+    if [ "$exit_code" -eq 0 ]; then
+      return 0
+    fi
+    echo "Warning: Planning call failed (attempt $attempt/$max_retries, exit code $exit_code)" | tee -a "${RUN_LOG:-/dev/null}" >&2
+    if [ $attempt -lt $max_retries ]; then
+      local backoff=$(( retry_delay * (1 << (attempt - 1)) ))
+      if [ "$backoff" -gt 60 ]; then backoff=60; fi
+      echo "Retrying planning call in ${backoff}s..." >&2
+      sleep "$backoff"
+    fi
+    attempt=$((attempt + 1))
+  done
+  echo "Warning: Planning call failed after $max_retries attempts. Proceeding with archive/reset." | tee -a "${RUN_LOG:-/dev/null}" >&2
+  return 1
+}
