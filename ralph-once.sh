@@ -158,8 +158,10 @@ if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
     fi
     echo "Warning: Planning call failed (attempt $PLAN_ATTEMPT/$MAX_RETRIES, exit code $PLAN_EXIT)" >&2
     if [ $PLAN_ATTEMPT -lt $MAX_RETRIES ]; then
-      echo "Retrying planning call in ${RETRY_DELAY}s..." >&2
-      sleep $RETRY_DELAY
+      BACKOFF=$(( RETRY_DELAY * (1 << (PLAN_ATTEMPT - 1)) ))
+      if [ "$BACKOFF" -gt 60 ]; then BACKOFF=60; fi
+      echo "Retrying planning call in ${BACKOFF}s..." >&2
+      sleep "$BACKOFF"
     fi
     PLAN_ATTEMPT=$((PLAN_ATTEMPT + 1))
   done
