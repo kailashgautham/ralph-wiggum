@@ -91,6 +91,65 @@ ralph_commit_push_pr() {
   git pull --ff-only origin "$RALPH_BASE_BRANCH" 2>/dev/null || true
 }
 
+# ralph_run_main_call PROMPT
+# Invokes Claude with PROMPT for the main task execution phase.
+# Streams output to the terminal in real-time and captures it to a temp file.
+# Retries up to MAX_RETRIES times with exponential backoff. On success, sets
+# the global OUTPUT variable and returns 0. On failure, sets OUTPUT to whatever
+# was captured, prints an error message, and returns the last exit code (124 if
+# timed out).
+#
+# Globals used: CLAUDE_MODEL, RALPH_TIMEOUT, RALPH_ALLOWED_TOOLS,
+#               MAX_RETRIES, RETRY_DELAY, LOGS_DIR, OUTPUT (set on return)
+ralph_run_main_call() {
+  local prompt="$1"
+  local max_retries="${MAX_RETRIES:-3}"
+  local retry_delay="${RETRY_DELAY:-5}"
+  local cmd=(claude -p "$prompt" --allowedTools "${RALPH_ALLOWED_TOOLS:-Edit,Write,Bash,Read,Glob,Grep}" --verbose)
+  if [ -n "${CLAUDE_MODEL:-}" ]; then
+    cmd+=(--model "$CLAUDE_MODEL")
+  fi
+  local tmpfile
+  tmpfile=$(mktemp "${LOGS_DIR:-/tmp}/claude_main_XXXXXX")
+  local attempt=1
+  local exit_code=1
+  while [ $attempt -le $max_retries ]; do
+    set +e
+    if [ -n "${RALPH_TIMEOUT:-}" ]; then
+      timeout "$RALPH_TIMEOUT" "${cmd[@]}" 2>&1 | tee "$tmpfile"
+    else
+      "${cmd[@]}" 2>&1 | tee "$tmpfile"
+    fi
+    exit_code=${PIPESTATUS[0]}
+    set -e
+    if [ "$exit_code" -eq 124 ]; then
+      echo "Warning: Claude invocation timed out after ${RALPH_TIMEOUT}s (attempt $attempt/$max_retries)" >&2
+    fi
+    if [ "$exit_code" -eq 0 ]; then
+      break
+    fi
+    echo "Warning: Claude CLI failed (attempt $attempt/$max_retries, exit code $exit_code)" >&2
+    if [ $attempt -lt $max_retries ]; then
+      local backoff=$(( retry_delay * (1 << (attempt - 1)) ))
+      if [ "$backoff" -gt 60 ]; then backoff=60; fi
+      echo "Retrying in ${backoff}s..." >&2
+      sleep "$backoff"
+    fi
+    attempt=$((attempt + 1))
+  done
+  OUTPUT=$(cat "$tmpfile")
+  rm -f "$tmpfile"
+  if [ "$exit_code" -eq 124 ]; then
+    echo "Error: Claude invocation timed out after ${RALPH_TIMEOUT}s" >&2
+    return 124
+  fi
+  if [ "$exit_code" -ne 0 ]; then
+    echo "Error: Claude CLI failed after $max_retries attempts (exit code $exit_code)." >&2
+    return "$exit_code"
+  fi
+  return 0
+}
+
 # ralph_run_planning_call PROMPT
 # Invokes Claude with PROMPT for the planning/task-generation phase.
 # Retries up to MAX_RETRIES times with exponential backoff, logging output to
