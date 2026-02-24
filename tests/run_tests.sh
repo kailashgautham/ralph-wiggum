@@ -12,6 +12,8 @@
 #   7. docker-ralph.sh prints error and exits 1 for non-integer max_iterations
 #   8. RALPH_LOG_KEEP=0 passes validation and exits 0 (log-rotation skipped)
 #   9. RALPH_LOG_KEEP=abc exits 1 with "must be a non-negative integer"
+#  10. ralph-once.sh --dry-run prints the correct next task and exits 0
+#  11. ralph-once.sh status counts completed vs remaining correctly
 
 set -uo pipefail
 
@@ -249,6 +251,41 @@ echo "Test 9: RALPH_LOG_KEEP=abc exits 1 with validation error"
     pass "RALPH_LOG_KEEP=abc exits 1 with 'must be a non-negative integer'"
   else
     fail "RALPH_LOG_KEEP=abc: expected exit 1 and 'must be a non-negative integer', got: $(echo "$output" | head -5) (exit $exit_code)"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Test 10: ralph-once.sh --dry-run prints the correct next task and exits 0
+# ---------------------------------------------------------------------------
+echo "Test 10: ralph-once.sh --dry-run prints the correct next task"
+{
+  dir=$(setup_repo)
+  output=$(cd "$dir" && bash "$RALPH_ONCE_SH" --dry-run 2>&1)
+  exit_code=$?
+  cleanup_repo "$dir"
+  if [ "$exit_code" -eq 0 ] && echo "$output" | grep -qE "^Next task: task alpha$"; then
+    pass "ralph-once.sh --dry-run prints the correct next task and exits 0"
+  else
+    fail "ralph-once.sh --dry-run: expected 'Next task: task alpha', got: $(echo "$output" | head -5) (exit $exit_code)"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Test 11: ralph-once.sh status counts completed vs remaining correctly
+# ---------------------------------------------------------------------------
+echo "Test 11: ralph-once.sh status counts completed vs remaining"
+{
+  dir=$(setup_repo)
+  echo "[DONE] task alpha" >> "$dir/progress.txt"
+  output=$(cd "$dir" && bash "$RALPH_ONCE_SH" status 2>&1)
+  exit_code=$?
+  cleanup_repo "$dir"
+  if [ "$exit_code" -eq 0 ] && \
+     echo "$output" | grep -q "1 completed" && \
+     echo "$output" | grep -q "2 remaining"; then
+    pass "ralph-once.sh status counts 1 completed and 2 remaining correctly"
+  else
+    fail "ralph-once.sh status: expected '1 completed' and '2 remaining', got: $(echo "$output" | head -5) (exit $exit_code)"
   fi
 }
 
