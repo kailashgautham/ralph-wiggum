@@ -50,7 +50,8 @@ Environment variables:
                         complete (default: built-in review-and-rewrite prompt)
   RALPH_COMPLETE_HOOK   Shell command executed (via eval) immediately before
                         ralph.sh exits via any terminal path. RALPH_EXIT_REASON
-                        is exported as "complete", "stall", or "max_iterations".
+                        is exported as "complete", "stall", "max_iterations",
+                        or "signal" (SIGINT/SIGTERM received).
   RALPH_ITER_HOOK       Shell command executed (via eval) at the start of each
                         iteration, immediately before the Claude invocation.
                         RALPH_CURRENT_ITER (1-based iteration number) and

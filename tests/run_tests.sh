@@ -22,6 +22,7 @@
 #  17. docker-ralph.sh status delegates to ralph.sh on the host without invoking Docker
 #  18. docker-ralph.sh --dry-run delegates to ralph.sh on the host without invoking Docker
 #  19. RALPH_ITER_HOOK is eval'd with RALPH_CURRENT_ITER exported before the Claude invocation
+#  20. RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=signal when ralph.sh receives SIGTERM
 
 set -uo pipefail
 
@@ -506,6 +507,46 @@ echo "Test 19: RALPH_ITER_HOOK writes RALPH_CURRENT_ITER to a file before Claude
     pass "RALPH_ITER_HOOK fires with RALPH_CURRENT_ITER=1 on the first iteration"
   else
     fail "RALPH_ITER_HOOK: expected '1' in iter_hook_out.txt, got '$iter_value'"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Test 20: RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=signal on SIGTERM
+# ---------------------------------------------------------------------------
+echo "Test 20: RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=signal on SIGTERM"
+{
+  dir=$(setup_repo)
+  mkdir -p "$dir/bin"
+  # Mock claude that sleeps briefly so SIGTERM can be delivered while it is running
+  cat > "$dir/bin/claude" << 'MOCKEOF'
+#!/usr/bin/env bash
+sleep 2
+exit 0
+MOCKEOF
+  chmod +x "$dir/bin/claude"
+  # Run ralph.sh in background; exec replaces the subshell so $! is ralph.sh's PID
+  (
+    cd "$dir"
+    exec env PATH="$dir/bin:$PATH" \
+      RALPH_MAX_STALLS=99 \
+      RALPH_NO_GIT=1 \
+      RALPH_COMPLETE_HOOK='echo "$RALPH_EXIT_REASON" > hook_exit_reason.txt' \
+      bash "$RALPH_SH" 99
+  ) >/dev/null 2>&1 &
+  ralph_pid=$!
+  # Wait for ralph.sh to start and invoke mock claude
+  sleep 0.5
+  # Send SIGTERM; bash defers the trap until mock claude exits
+  kill -TERM "$ralph_pid" 2>/dev/null || true
+  # Wait for ralph.sh to fully exit
+  wait "$ralph_pid" 2>/dev/null || true
+  exit_reason=""
+  [ -f "$dir/hook_exit_reason.txt" ] && exit_reason=$(cat "$dir/hook_exit_reason.txt")
+  cleanup_repo "$dir"
+  if echo "$exit_reason" | grep -q "signal"; then
+    pass "RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=signal on SIGTERM"
+  else
+    fail "RALPH_COMPLETE_HOOK signal: expected 'signal' in hook file, got '$exit_reason'"
   fi
 }
 
