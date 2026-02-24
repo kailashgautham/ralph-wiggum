@@ -193,34 +193,41 @@ ralph_next_task() {
   exit 0
 }
 
-# ralph_run_main_call PROMPT
-# Invokes Claude with PROMPT for the main task execution phase.
-# Streams output to the terminal in real-time and captures it to a temp file.
-# Retries up to MAX_RETRIES times with exponential backoff. On success, sets
-# the global OUTPUT variable and returns 0. On failure, sets OUTPUT to whatever
-# was captured, prints an error message, and returns the last exit code (124 if
-# timed out).
-#
-# Globals used: CLAUDE_MODEL, RALPH_TIMEOUT, RALPH_ALLOWED_TOOLS,
-#               MAX_RETRIES, RETRY_DELAY, LOGS_DIR, OUTPUT (set on return)
-ralph_run_main_call() {
-  local prompt="$1"
+# _ralph_invoke_claude_with_retry CMD_ARRAY_NAME CAPTURE_OUTPUT
+# Internal shared helper: runs the claude command with retry/backoff logic,
+# including the credit-exhaustion branch (1-hour pause + indefinite retry).
+#   CMD_ARRAY_NAME   name of a bash array variable holding the command + args
+#   CAPTURE_OUTPUT   "yes" → tee output to a tmp file, then set the global
+#                            OUTPUT variable from that file after the loop;
+#                            does NOT additionally pipe to RUN_LOG
+#                    "no"  → tee output to a tmp file AND additionally pipe to
+#                            ${RUN_LOG:-/dev/null}
+# Globals used: MAX_RETRIES, RETRY_DELAY, RALPH_TIMEOUT, LOGS_DIR, RUN_LOG
+# Sets global OUTPUT (when CAPTURE_OUTPUT="yes"). Returns the final exit code.
+_ralph_invoke_claude_with_retry() {
+  local cmd_array_name="$1"
+  local capture_output="$2"
+  local -n _cmd_ref="$cmd_array_name"
   local max_retries="${MAX_RETRIES:-3}"
   local retry_delay="${RETRY_DELAY:-5}"
-  local cmd=(claude -p "$prompt" --allowedTools "${RALPH_ALLOWED_TOOLS:-Edit,Write,Bash,Read,Glob,Grep}" --verbose)
-  if [ -n "${CLAUDE_MODEL:-}" ]; then
-    cmd+=(--model "$CLAUDE_MODEL")
-  fi
   local tmpfile
-  tmpfile=$(mktemp "${LOGS_DIR:-/tmp}/claude_main_XXXXXX")
+  tmpfile=$(mktemp "${LOGS_DIR:-/tmp}/claude_XXXXXX")
   local attempt=1
   local exit_code=1
   while [ $attempt -le $max_retries ]; do
     set +e
     if [ -n "${RALPH_TIMEOUT:-}" ]; then
-      timeout "$RALPH_TIMEOUT" "${cmd[@]}" 2>&1 | tee "$tmpfile"
+      if [ "$capture_output" = "yes" ]; then
+        timeout "$RALPH_TIMEOUT" "${_cmd_ref[@]}" 2>&1 | tee "$tmpfile"
+      else
+        timeout "$RALPH_TIMEOUT" "${_cmd_ref[@]}" 2>&1 | tee "$tmpfile" | tee -a "${RUN_LOG:-/dev/null}"
+      fi
     else
-      "${cmd[@]}" 2>&1 | tee "$tmpfile"
+      if [ "$capture_output" = "yes" ]; then
+        "${_cmd_ref[@]}" 2>&1 | tee "$tmpfile"
+      else
+        "${_cmd_ref[@]}" 2>&1 | tee "$tmpfile" | tee -a "${RUN_LOG:-/dev/null}"
+      fi
     fi
     exit_code=${PIPESTATUS[0]}
     set -e
@@ -245,14 +252,38 @@ ralph_run_main_call() {
     fi
     attempt=$((attempt + 1))
   done
-  OUTPUT=$(cat "$tmpfile")
+  if [ "$capture_output" = "yes" ]; then
+    OUTPUT=$(cat "$tmpfile")
+  fi
   rm -f "$tmpfile"
+  return "$exit_code"
+}
+
+# ralph_run_main_call PROMPT
+# Invokes Claude with PROMPT for the main task execution phase.
+# Streams output to the terminal in real-time and captures it to a temp file.
+# Retries up to MAX_RETRIES times with exponential backoff. On success, sets
+# the global OUTPUT variable and returns 0. On failure, sets OUTPUT to whatever
+# was captured, prints an error message, and returns the last exit code (124 if
+# timed out).
+#
+# Globals used: CLAUDE_MODEL, RALPH_TIMEOUT, RALPH_ALLOWED_TOOLS,
+#               MAX_RETRIES, RETRY_DELAY, LOGS_DIR, OUTPUT (set on return)
+ralph_run_main_call() {
+  local prompt="$1"
+  local cmd=(claude -p "$prompt" --allowedTools "${RALPH_ALLOWED_TOOLS:-Edit,Write,Bash,Read,Glob,Grep}" --verbose)
+  if [ -n "${CLAUDE_MODEL:-}" ]; then
+    cmd+=(--model "$CLAUDE_MODEL")
+  fi
+  local exit_code
+  _ralph_invoke_claude_with_retry cmd "yes"
+  exit_code=$?
   if [ "$exit_code" -eq 124 ]; then
     echo "Error: Claude invocation timed out after ${RALPH_TIMEOUT}s" >&2
     return 124
   fi
   if [ "$exit_code" -ne 0 ]; then
-    echo "Error: Claude CLI failed after $max_retries attempts (exit code $exit_code)." >&2
+    echo "Error: Claude CLI failed after ${MAX_RETRIES:-3} attempts (exit code $exit_code)." >&2
     return "$exit_code"
   fi
   return 0
@@ -303,43 +334,16 @@ ralph_handle_complete() {
 #               MAX_RETRIES, RETRY_DELAY, RUN_LOG
 ralph_run_planning_call() {
   local prompt="$1"
-  local max_retries="${MAX_RETRIES:-3}"
-  local retry_delay="${RETRY_DELAY:-5}"
   local plan_cmd=(claude -p "$prompt" --allowedTools "${RALPH_ALLOWED_TOOLS:-Edit,Write,Bash,Read,Glob,Grep}" --verbose)
   if [ -n "${CLAUDE_MODEL:-}" ]; then
     plan_cmd+=(--model "$CLAUDE_MODEL")
   fi
-  local plan_tmpfile
-  plan_tmpfile=$(mktemp "${LOGS_DIR:-/tmp}/claude_plan_XXXXXX")
-  local attempt=1
-  local exit_code=1
-  while [ $attempt -le $max_retries ]; do
-    if [ -n "${RALPH_TIMEOUT:-}" ]; then
-      timeout "$RALPH_TIMEOUT" "${plan_cmd[@]}" 2>&1 | tee "$plan_tmpfile" | tee -a "${RUN_LOG:-/dev/null}"
-    else
-      "${plan_cmd[@]}" 2>&1 | tee "$plan_tmpfile" | tee -a "${RUN_LOG:-/dev/null}"
-    fi
-    exit_code=${PIPESTATUS[0]}
-    if [ "$exit_code" -eq 0 ]; then
-      rm -f "$plan_tmpfile"
-      return 0
-    fi
-    # Credit exhaustion: pause for an hour and retry indefinitely.
-    if _ralph_is_credit_error "$(cat "$plan_tmpfile")"; then
-      echo "Warning: Credits exhausted during planning call. Waiting 1 hour before retry..." >&2
-      sleep 3600
-      continue
-    fi
-    echo "Warning: Planning call failed (attempt $attempt/$max_retries, exit code $exit_code)" | tee -a "${RUN_LOG:-/dev/null}" >&2
-    if [ $attempt -lt $max_retries ]; then
-      local backoff=$(( retry_delay * (1 << (attempt - 1)) ))
-      if [ "$backoff" -gt 60 ]; then backoff=60; fi
-      echo "Retrying planning call in ${backoff}s..." >&2
-      sleep "$backoff"
-    fi
-    attempt=$((attempt + 1))
-  done
-  rm -f "$plan_tmpfile"
-  echo "Warning: Planning call failed after $max_retries attempts. Proceeding with archive/reset." | tee -a "${RUN_LOG:-/dev/null}" >&2
+  local exit_code
+  _ralph_invoke_claude_with_retry plan_cmd "no"
+  exit_code=$?
+  if [ "$exit_code" -eq 0 ]; then
+    return 0
+  fi
+  echo "Warning: Planning call failed after ${MAX_RETRIES:-3} attempts. Proceeding with archive/reset." | tee -a "${RUN_LOG:-/dev/null}" >&2
   return 1
 }
