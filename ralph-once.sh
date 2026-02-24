@@ -88,6 +88,7 @@ if ! flock -n 9; then
   echo "Error: another instance of ralph is already running (lockfile: $LOCKFILE). Aborting." >&2
   exit 1
 fi
+trap 'rm -f "$LOCKFILE"' EXIT
 
 RUN_HEADER="=== Ralph single iteration === $(date '+%Y-%m-%d %H:%M:%S') ==="
 echo "$RUN_HEADER" | tee -a "$RUN_LOG"
@@ -103,8 +104,6 @@ if [ -f "prompt.txt" ]; then
 else
   PROMPT="$DEFAULT_PROMPT"
 fi
-
-trap 'rm -f "$LOCKFILE"' EXIT
 
 OUTPUT=""
 MAIN_EXIT=0
