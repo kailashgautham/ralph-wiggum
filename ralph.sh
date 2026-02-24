@@ -32,6 +32,8 @@ Environment variables:
   RALPH_RETRY_DELAY     Base delay in seconds between retries (default: 5)
   RALPH_ALLOWED_TOOLS   Comma-separated allowed Claude tools
                         (default: Edit,Write,Bash,Read,Glob,Grep)
+  RALPH_NO_GIT          Skip all git operations (diff check, commit, push,
+                        PR creation) when set to any non-empty value
 
 Examples:
   ./ralph.sh                  # Run up to 20 iterations
@@ -114,7 +116,12 @@ if [ "${1:-}" = "--dry-run" ]; then
 fi
 
 # --- pre-flight checks ---
-for _bin in claude git; do
+RALPH_NO_GIT=${RALPH_NO_GIT:-}
+_required_bins=(claude)
+if [ -z "$RALPH_NO_GIT" ]; then
+  _required_bins+=(git)
+fi
+for _bin in "${_required_bins[@]}"; do
   if ! command -v "$_bin" &>/dev/null; then
     echo "Error: '$_bin' not found in PATH. Please install it and ensure it is on your PATH." >&2
     exit 1
@@ -260,7 +267,10 @@ for i in $(seq 1 "$MAX"); do
     STALL_COUNT=0
   fi
 
-  if git diff --quiet && git diff --cached --quiet; then
+  if [ -n "$RALPH_NO_GIT" ]; then
+    echo "Skipping git operations (RALPH_NO_GIT is set)."
+    echo "Skipping git operations (RALPH_NO_GIT is set)." >> "$RUN_LOG"
+  elif git diff --quiet && git diff --cached --quiet; then
     echo "No changes to commit for iteration $i."
     echo "No changes to commit for iteration $i." >> "$RUN_LOG"
   else
@@ -289,7 +299,7 @@ for i in $(seq 1 "$MAX"); do
     ARCHIVE_MSG="Archived progress.txt to $ARCHIVE_FILE and reset for new cycle."
     echo "$ARCHIVE_MSG" | tee -a "$RUN_LOG"
 
-    if ! git diff --quiet || ! git diff --cached --quiet; then
+    if [ -z "$RALPH_NO_GIT" ] && { ! git diff --quiet || ! git diff --cached --quiet; }; then
       ralph_commit_push_pr "ralph/cycle-rewrite" "ralph: rewrite PRD.md tasks for next cycle (iteration $i)" "Automated cycle rewrite from Ralph iteration $i."
     fi
 

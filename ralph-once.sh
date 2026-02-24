@@ -25,6 +25,8 @@ Environment variables:
   RALPH_RETRY_DELAY     Base delay in seconds between retries (default: 5)
   RALPH_ALLOWED_TOOLS   Comma-separated allowed Claude tools
                         (default: Edit,Write,Bash,Read,Glob,Grep)
+  RALPH_NO_GIT          Skip all git operations (diff check, commit, push,
+                        PR creation) when set to any non-empty value
 
 Examples:
   ./ralph-once.sh
@@ -115,6 +117,7 @@ MAX_RETRIES=${MAX_RETRIES:-3}
 RETRY_DELAY=${RALPH_RETRY_DELAY:-5}
 RALPH_ALLOWED_TOOLS=${RALPH_ALLOWED_TOOLS:-"Edit,Write,Bash,Read,Glob,Grep"}
 RALPH_BASE_BRANCH=${RALPH_BASE_BRANCH:-main}
+RALPH_NO_GIT=${RALPH_NO_GIT:-}
 
 validate_int MAX_RETRIES
 if [ -n "$RALPH_TIMEOUT" ]; then validate_int RALPH_TIMEOUT; fi
@@ -124,7 +127,11 @@ mkdir -p "$LOGS_DIR"
 RUN_LOG="$LOGS_DIR/once_$(date +%Y%m%d_%H%M%S).log"
 
 # --- pre-flight checks ---
-for _bin in claude git; do
+_required_bins=(claude)
+if [ -z "$RALPH_NO_GIT" ]; then
+  _required_bins+=(git)
+fi
+for _bin in "${_required_bins[@]}"; do
   if ! command -v "$_bin" &>/dev/null; then
     echo "Error: '$_bin' not found in PATH. Please install it and ensure it is on your PATH." >&2
     exit 1
@@ -168,7 +175,9 @@ if [ "$MAIN_EXIT" -ne 0 ]; then
   exit "$MAIN_EXIT"
 fi
 
-if git diff --quiet && git diff --cached --quiet; then
+if [ -n "$RALPH_NO_GIT" ]; then
+  echo "Skipping git operations (RALPH_NO_GIT is set)."
+elif git diff --quiet && git diff --cached --quiet; then
   echo "No changes to commit."
 else
   LAST_DONE=$(grep '^\[DONE\]' progress.txt 2>/dev/null | tail -1 | sed 's/^\[DONE\] //')
@@ -194,7 +203,7 @@ if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
   printf "# Progress Tracker\n# Each completed task is logged here by the agent.\n# Format: [DONE] Task description\n" > progress.txt
   echo "Archived progress.txt to $ARCHIVE_FILE and reset for new cycle."
 
-  if ! git diff --quiet || ! git diff --cached --quiet; then
+  if [ -z "$RALPH_NO_GIT" ] && { ! git diff --quiet || ! git diff --cached --quiet; }; then
     ralph_commit_push_pr "ralph/cycle-rewrite" "ralph: rewrite PRD.md tasks for next cycle (single iteration)" "Automated cycle rewrite from Ralph single iteration."
   fi
 
