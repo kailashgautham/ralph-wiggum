@@ -217,7 +217,7 @@ _ralph_invoke_claude_with_retry() {
   local max_retries="${MAX_RETRIES:-3}"
   local retry_delay="${RETRY_DELAY:-5}"
   local tmpfile
-  tmpfile=$(mktemp "${LOGS_DIR:-/tmp}/claude_XXXXXX")
+  tmpfile=$(mktemp "${LOGS_DIR:-/tmp}/claude_output_XXXXXX.tmp")
   local attempt=1
   local exit_code=1
   while [ $attempt -le $max_retries ]; do

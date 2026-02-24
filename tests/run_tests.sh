@@ -24,6 +24,7 @@
 #  19. RALPH_ITER_HOOK is eval'd with RALPH_CURRENT_ITER exported before the Claude invocation
 #  20. RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=signal when ralph.sh receives SIGTERM
 #  21. Failed planning call preserves progress.txt rather than silently resetting it
+#  22. SIGTERM removes claude_output_*.tmp tmpfiles from logs/
 
 set -uo pipefail
 
@@ -596,6 +597,46 @@ MOCKEOF
     pass "Failed planning call preserves progress.txt and logs an error"
   else
     fail "Planning failure: expected '[DONE] task alpha' in progress.txt and error in output; progress='$progress_contents', output=$(echo "$output" | head -10)"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Test 22: SIGTERM removes claude_output_*.tmp tmpfiles from logs/
+# ---------------------------------------------------------------------------
+echo "Test 22: SIGTERM removes claude_output_*.tmp tmpfiles from logs/"
+{
+  dir=$(setup_repo)
+  mkdir -p "$dir/bin"
+  # Mock claude that sleeps so SIGTERM can be delivered while it is running,
+  # giving _ralph_invoke_claude_with_retry time to create the tmpfile first.
+  cat > "$dir/bin/claude" << 'MOCKEOF'
+#!/usr/bin/env bash
+sleep 2
+exit 0
+MOCKEOF
+  chmod +x "$dir/bin/claude"
+  # Run ralph.sh in background; exec replaces the subshell so $! is ralph.sh's PID.
+  (
+    cd "$dir"
+    exec env PATH="$dir/bin:$PATH" \
+      RALPH_MAX_STALLS=99 \
+      RALPH_NO_GIT=1 \
+      bash "$RALPH_SH" 99
+  ) >/dev/null 2>&1 &
+  ralph_pid=$!
+  # Wait for ralph.sh to start, create the tmpfile, and invoke mock claude.
+  sleep 0.5
+  # Send SIGTERM; bash defers the trap until mock claude exits.
+  kill -TERM "$ralph_pid" 2>/dev/null || true
+  # Wait for ralph.sh to fully exit (after mock claude's 2s sleep).
+  wait "$ralph_pid" 2>/dev/null || true
+  # No claude_output_*.tmp files should remain after handle_signal cleanup.
+  tmp_count=$(ls "$dir/logs/claude_output_"*.tmp 2>/dev/null | wc -l | tr -d ' ')
+  cleanup_repo "$dir"
+  if [ "$tmp_count" -eq 0 ]; then
+    pass "SIGTERM removes claude_output_*.tmp tmpfiles from logs/"
+  else
+    fail "SIGTERM cleanup: expected 0 claude_output_*.tmp files in logs/, got $tmp_count"
   fi
 }
 
