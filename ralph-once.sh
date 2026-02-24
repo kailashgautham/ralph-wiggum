@@ -27,6 +27,8 @@ Environment variables:
                         (default: Edit,Write,Bash,Read,Glob,Grep)
   RALPH_NO_GIT          Skip all git operations (diff check, commit, push,
                         PR creation) when set to any non-empty value
+  RALPH_NO_PR           If non-empty, skip PR creation and leave the branch
+                        on the remote for manual review
 
 Examples:
   ./ralph-once.sh
