@@ -41,8 +41,9 @@ Environment variables:
   RALPH_COMPLETE_HOOK   Shell command executed (via eval) immediately before
                         ralph.sh exits via any terminal path. RALPH_EXIT_REASON
                         is exported as "complete" (all tasks done), "stall"
-                        (stall limit reached), or "max_iterations" (loop limit
-                        reached). Useful for notifications or cleanup.
+                        (stall limit reached), "max_iterations" (loop limit
+                        reached), or "signal" (SIGINT/SIGTERM received).
+                        Useful for notifications or cleanup.
   RALPH_ITER_HOOK       Shell command executed (via eval) at the start of each
                         iteration, immediately before the Claude invocation.
                         RALPH_CURRENT_ITER (1-based iteration number) and
@@ -147,6 +148,8 @@ handle_signal() {
   echo "$msg"
   echo "$msg" >> "$RUN_LOG"
   rm -f "$LOGS_DIR/claude_output_"*".tmp"
+  export RALPH_EXIT_REASON="signal"
+  _ralph_fire_hook "signal"
   exit 0
 }
 
