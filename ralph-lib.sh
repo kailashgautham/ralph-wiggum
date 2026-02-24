@@ -230,6 +230,40 @@ ralph_run_main_call() {
   return 0
 }
 
+# ralph_handle_complete ITER_LABEL
+# Handles the <promise>COMPLETE</promise> signal: logs a completion message,
+# invokes the planning call to generate a new task list, archives progress.txt
+# to logs/, resets progress.txt to its header, and (when git is available and
+# changes exist) commits via ralph_commit_push_pr.
+#
+# ITER_LABEL is a short string describing the current iteration context, used
+# in the log message and commit message (e.g. "iteration 3" or "single
+# iteration").
+#
+# Globals used: RALPH_NO_GIT (optional), LOGS_DIR (required), RUN_LOG
+#               (optional), RALPH_BASE_BRANCH (required for git ops)
+ralph_handle_complete() {
+  local iter_label="$1"
+  local done_msg="=== All tasks complete ($iter_label). Generating new tasks... ==="
+  echo ""
+  _ralph_log "$done_msg"
+
+  local plan_prompt="Review the codebase in this directory. The project is a self-improving agentic loop called Ralph. All tasks in PRD.md have been completed (see progress.txt). Your job is to review the code for weaknesses, missing features, or further improvements, then REWRITE the Tasks section in PRD.md with a fresh list of at least 5 unchecked improvement tasks in the format '- [ ] task description'. Replace the existing task list entirely with the new one. Do not modify progress.txt or check off any boxes."
+
+  ralph_run_planning_call "$plan_prompt"
+
+  # Archive completed progress entries and reset progress.txt for the new cycle.
+  local archive_file
+  archive_file="$LOGS_DIR/progress_archive_$(date +%Y%m%d_%H%M%S).txt"
+  cp progress.txt "$archive_file"
+  printf "# Progress Tracker\n# Each completed task is logged here by the agent.\n# Format: [DONE] Task description\n" > progress.txt
+  _ralph_log "Archived progress.txt to $archive_file and reset for new cycle."
+
+  if [ -z "${RALPH_NO_GIT:-}" ] && { ! git diff --quiet || ! git diff --cached --quiet; }; then
+    ralph_commit_push_pr "ralph/cycle-rewrite" "ralph: rewrite PRD.md tasks for next cycle ($iter_label)" "Automated cycle rewrite from Ralph $iter_label."
+  fi
+}
+
 # ralph_run_planning_call PROMPT
 # Invokes Claude with PROMPT for the planning/task-generation phase.
 # Retries up to MAX_RETRIES times with exponential backoff, logging output to

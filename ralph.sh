@@ -204,26 +204,8 @@ for i in $(seq 1 "$MAX"); do
   fi
 
   if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
-    DONE_MSG="=== All tasks complete after $i iteration(s). Generating new tasks... ==="
-    echo ""
-    echo "$DONE_MSG" | tee -a "$RUN_LOG"
     print_run_summary "all tasks complete"
-
-    PLAN_PROMPT="Review the codebase in this directory. The project is a self-improving agentic loop called Ralph. All tasks in PRD.md have been completed (see progress.txt). Your job is to review the code for weaknesses, missing features, or further improvements, then REWRITE the Tasks section in PRD.md with a fresh list of at least 5 unchecked improvement tasks in the format '- [ ] task description'. Replace the existing task list entirely with the new one. Do not modify progress.txt or check off any boxes."
-
-    ralph_run_planning_call "$PLAN_PROMPT"
-
-    # Archive completed progress entries and reset progress.txt for the new cycle.
-    ARCHIVE_FILE="$LOGS_DIR/progress_archive_$(date +%Y%m%d_%H%M%S).txt"
-    cp progress.txt "$ARCHIVE_FILE"
-    printf "# Progress Tracker\n# Each completed task is logged here by the agent.\n# Format: [DONE] Task description\n" > progress.txt
-    ARCHIVE_MSG="Archived progress.txt to $ARCHIVE_FILE and reset for new cycle."
-    echo "$ARCHIVE_MSG" | tee -a "$RUN_LOG"
-
-    if [ -z "$RALPH_NO_GIT" ] && { ! git diff --quiet || ! git diff --cached --quiet; }; then
-      ralph_commit_push_pr "ralph/cycle-rewrite" "ralph: rewrite PRD.md tasks for next cycle (iteration $i)" "Automated cycle rewrite from Ralph iteration $i."
-    fi
-
+    ralph_handle_complete "iteration $i"
     continue
   fi
 done

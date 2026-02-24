@@ -130,22 +130,6 @@ else
 fi
 
 if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
-  echo ""
-  echo "=== All tasks complete. Generating new tasks... ===" | tee -a "$RUN_LOG"
-
-  PLAN_PROMPT="Review the codebase in this directory. The project is a self-improving agentic loop called Ralph. All tasks in PRD.md have been completed (see progress.txt). Your job is to review the code for weaknesses, missing features, or further improvements, then REWRITE the Tasks section in PRD.md with a fresh list of at least 5 unchecked improvement tasks in the format '- [ ] task description'. Replace the existing task list entirely with the new one. Do not modify progress.txt or check off any boxes."
-
-  ralph_run_planning_call "$PLAN_PROMPT"
-
-  # Archive completed progress entries and reset progress.txt for the new cycle.
-  ARCHIVE_FILE="$LOGS_DIR/progress_archive_$(date +%Y%m%d_%H%M%S).txt"
-  cp progress.txt "$ARCHIVE_FILE"
-  printf "# Progress Tracker\n# Each completed task is logged here by the agent.\n# Format: [DONE] Task description\n" > progress.txt
-  echo "Archived progress.txt to $ARCHIVE_FILE and reset for new cycle."
-
-  if [ -z "$RALPH_NO_GIT" ] && { ! git diff --quiet || ! git diff --cached --quiet; }; then
-    ralph_commit_push_pr "ralph/cycle-rewrite" "ralph: rewrite PRD.md tasks for next cycle (single iteration)" "Automated cycle rewrite from Ralph single iteration."
-  fi
-
+  ralph_handle_complete "single iteration"
   exit 0
 fi
