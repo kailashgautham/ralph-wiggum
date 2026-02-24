@@ -15,6 +15,7 @@
 #  10. ralph-once.sh --dry-run prints the correct next task and exits 0
 #  11. ralph-once.sh status counts completed vs remaining correctly
 #  12. RALPH_LOG_KEEP=N deletes old log files beyond the keep limit
+#  13. prompt.txt override is used instead of the default prompt
 
 set -uo pipefail
 
@@ -316,6 +317,40 @@ echo "Test 12: RALPH_LOG_KEEP=N deletes oldest log files beyond the keep limit"
     pass "RALPH_LOG_KEEP=3 keeps the 3 newest log files plus the new run log and removes the 2 oldest"
   else
     fail "RALPH_LOG_KEEP=3: expected 4 files with dummy_1 and dummy_2 deleted, got $log_count files (dummy_1_gone=$oldest_1_gone, dummy_2_gone=$oldest_2_gone); output=$(echo "$output" | head -5)"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Test 13: prompt.txt override is used instead of the default prompt
+# ---------------------------------------------------------------------------
+echo "Test 13: prompt.txt override is used instead of the default prompt"
+{
+  dir=$(setup_repo)
+  mkdir -p "$dir/bin"
+  SENTINEL="SENTINEL_CUSTOM_PROMPT_XYZ_12345"
+  echo "$SENTINEL" > "$dir/prompt.txt"
+  # Install a mock claude that captures its -p argument to captured_prompt.txt
+  cat > "$dir/bin/claude" << 'MOCKEOF'
+#!/usr/bin/env bash
+prev=""
+for arg in "$@"; do
+  if [ "$prev" = "-p" ]; then
+    printf '%s' "$arg" > "$(pwd)/captured_prompt.txt"
+    break
+  fi
+  prev="$arg"
+done
+exit 0
+MOCKEOF
+  chmod +x "$dir/bin/claude"
+  output=$(cd "$dir" && PATH="$dir/bin:$PATH" RALPH_NO_GIT=1 bash "$RALPH_SH" 1 2>&1) || true
+  captured=""
+  [ -f "$dir/captured_prompt.txt" ] && captured=$(cat "$dir/captured_prompt.txt")
+  cleanup_repo "$dir"
+  if echo "$captured" | grep -qF "$SENTINEL" && ! echo "$captured" | grep -qF "You are working on a software project"; then
+    pass "prompt.txt sentinel is passed as the prompt and default prompt text is absent"
+  else
+    fail "prompt.txt override: expected sentinel in captured prompt without default text; sentinel='$SENTINEL', captured='$(echo "$captured" | head -3)'"
   fi
 }
 
