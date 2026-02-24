@@ -104,6 +104,36 @@ Each run of `ralph.sh` writes a timestamped log file to `logs/run_YYYYMMDD_HHMMS
 
 `docker-ralph.sh` builds a container image and mounts your project directory into it. Claude credentials are extracted from the macOS Keychain on first setup and stored in `.claude-auth/` (gitignored). The container runs `ralph.sh` against the mounted project files.
 
+### Custom prompts
+
+By default, both `ralph.sh` and `ralph-once.sh` send the following prompt to Claude on each iteration:
+
+```
+You are working on a software project. Read PRD.md for the full plan and progress.txt for completed tasks.
+Pick the next uncompleted task from PRD.md, implement it, then append a line to progress.txt in the format:
+  [DONE] <task description>
+When ALL tasks in PRD.md are complete, output the token: <promise>COMPLETE</promise>
+```
+
+If a file named `prompt.txt` exists in the project root, both scripts will load it and use its contents as the prompt instead of the default. The scripts print `Using prompt from prompt.txt` when this override is active.
+
+This is useful when you want to:
+- Add project-specific context (e.g. technology constraints, coding standards, testing requirements)
+- Change the task format or completion signal
+- Inject additional instructions that apply to every iteration
+
+**Example:** to tell Claude to always write tests alongside each change:
+
+```
+You are working on a software project. Read PRD.md for the full plan and progress.txt for completed tasks.
+Pick the next uncompleted task from PRD.md, implement it, and write corresponding tests.
+Then append a line to progress.txt in the format:
+  [DONE] <task description>
+When ALL tasks in PRD.md are complete, output the token: <promise>COMPLETE</promise>
+```
+
+Save this as `prompt.txt` in the project root and Ralph will use it on every subsequent iteration.
+
 ### Testing
 
 The `tests/run_tests.sh` script validates argument handling and core behaviour for `ralph.sh`, `ralph-once.sh`, and `docker-ralph.sh`. Run it directly from the repo root:
