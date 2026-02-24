@@ -121,16 +121,6 @@ START_TIME=$(date +%s)
 CURRENT_ITER=0
 STALL_COUNT=0
 
-# _ralph_fire_hook EXIT_REASON
-# If RALPH_COMPLETE_HOOK is set, exports RALPH_EXIT_REASON=EXIT_REASON and
-# runs the hook via eval. Called immediately before each terminal exit.
-_ralph_fire_hook() {
-  if [ -n "${RALPH_COMPLETE_HOOK:-}" ]; then
-    export RALPH_EXIT_REASON="$1"
-    eval "$RALPH_COMPLETE_HOOK"
-  fi
-}
-
 handle_signal() {
   local sig="$1"
   local msg="=== Received $sig — shutting down gracefully after iteration $CURRENT_ITER/$MAX === $(date '+%Y-%m-%d %H:%M:%S') ==="
