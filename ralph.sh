@@ -174,8 +174,7 @@ for i in $(seq 1 "$MAX"); do
   echo "$ITER_HEADER"
   echo "$ITER_HEADER" >> "$RUN_LOG"
 
-  DONE_BEFORE=$(grep -c '^\[DONE\]' progress.txt 2>/dev/null | tail -1)
-  DONE_BEFORE=${DONE_BEFORE:-0}
+  DONE_BEFORE=$(grep -c '^\[DONE\]' progress.txt 2>/dev/null) || DONE_BEFORE=0
 
   OUTPUT=""
   if ! ralph_run_main_call "$PROMPT"; then
@@ -186,8 +185,17 @@ for i in $(seq 1 "$MAX"); do
   fi
   echo "$OUTPUT" >> "$RUN_LOG"
 
-  DONE_AFTER=$(grep -c '^\[DONE\]' progress.txt 2>/dev/null | tail -1)
-  DONE_AFTER=${DONE_AFTER:-0}
+  # Check COMPLETE before stall detection: a COMPLETE response should not be
+  # counted as a stall even if no new [DONE] entry was written in this iteration.
+  if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
+    print_run_summary "all tasks complete"
+    _ralph_fire_hook "complete"
+    ralph_handle_complete "iteration $i"
+    STALL_COUNT=0
+    continue
+  fi
+
+  DONE_AFTER=$(grep -c '^\[DONE\]' progress.txt 2>/dev/null) || DONE_AFTER=0
   if [ "$DONE_AFTER" -le "$DONE_BEFORE" ]; then
     STALL_COUNT=$((STALL_COUNT + 1))
     STALL_MSG="Warning: No progress detected in iteration $i (stall $STALL_COUNT/$RALPH_MAX_STALLS)."
@@ -217,13 +225,6 @@ for i in $(seq 1 "$MAX"); do
       COMMIT_MSG="ralph: completed task (iteration $i)"
     fi
     ralph_commit_push_pr "ralph/iter-${i}" "$COMMIT_MSG" "Automated PR from Ralph iteration $i."
-  fi
-
-  if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
-    print_run_summary "all tasks complete"
-    _ralph_fire_hook "complete"
-    ralph_handle_complete "iteration $i"
-    continue
   fi
 done
 
