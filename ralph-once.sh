@@ -29,6 +29,8 @@ Environment variables:
                         PR creation) when set to any non-empty value
   RALPH_NO_PR           If non-empty, skip PR creation and leave the branch
                         on the remote for manual review
+  RALPH_PLAN_PROMPT     Override the planning prompt used when all tasks are
+                        complete (default: built-in review-and-rewrite prompt)
 
 Examples:
   ./ralph-once.sh

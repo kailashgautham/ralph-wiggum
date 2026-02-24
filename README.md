@@ -148,6 +148,7 @@ Key variables accepted by both `ralph.sh` and `ralph-once.sh`:
 | `RALPH_RETRY_DELAY` | `5` | Base delay in seconds between retries |
 | `RALPH_NO_GIT` | unset | Set to any non-empty value to skip all git operations (diff check, commit, push, and PR creation). Useful for local experimentation, environments without git configured, or when using a custom VCS workflow. |
 | `RALPH_NO_PR` | unset | If non-empty, skip PR creation and leave the branch on the remote for manual review. |
+| `RALPH_PLAN_PROMPT` | built-in | Override the planning prompt used when all tasks are complete. Defaults to the built-in review-and-rewrite prompt that asks Claude to generate a new task list. |
 
 `ralph.sh` also accepts:
 
