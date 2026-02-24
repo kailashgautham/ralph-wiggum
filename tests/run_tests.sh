@@ -14,7 +14,7 @@
 #   9. RALPH_LOG_KEEP=abc exits 1 with "must be a non-negative integer"
 #  10. ralph-once.sh --dry-run prints the correct next task and exits 0
 #  11. ralph-once.sh status counts completed vs remaining correctly
-#  12. RALPH_LOG_KEEP=N deletes old log files beyond the keep limit
+#  12. RALPH_LOG_KEEP=N deletes old .log files beyond the keep limit; non-.log files are preserved
 #  13. prompt.txt override is used instead of the default prompt
 #  14. RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=stall on stall exit
 #  15. RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=max_iterations on max iterations exit
@@ -300,31 +300,36 @@ echo "Test 11: ralph-once.sh status counts completed vs remaining"
 }
 
 # ---------------------------------------------------------------------------
-# Test 12: RALPH_LOG_KEEP=N deletes old log files beyond the keep limit
+# Test 12: RALPH_LOG_KEEP=N deletes old .log files beyond the keep limit;
+#          non-.log files in logs/ are not counted against the limit and not deleted
 # ---------------------------------------------------------------------------
-echo "Test 12: RALPH_LOG_KEEP=N deletes oldest log files beyond the keep limit"
+echo "Test 12: RALPH_LOG_KEEP=N deletes oldest .log files and preserves non-.log files"
 {
   dir=$(setup_repo)
   install_mock_claude_noop "$dir"
-  # Pre-populate logs/ with 5 dummy files; assign timestamps oldest-to-newest
+  # Pre-populate logs/ with 5 dummy .log files; assign timestamps oldest-to-newest
   # so the rotation order is deterministic regardless of filesystem timing.
   for n in 1 2 3 4 5; do
     touch -t "202001010000.0${n}" "$dir/logs/dummy_${n}.log"
   done
-  # Run one iteration with RALPH_LOG_KEEP=3; rotation should remove the 2 oldest.
+  # Place a non-.log file in logs/ — it must not be counted against the limit or deleted.
+  touch "$dir/logs/archive.txt"
+  # Run one iteration with RALPH_LOG_KEEP=3; rotation should remove the 2 oldest .log files.
   output=$(cd "$dir" && PATH="$dir/bin:$PATH" RALPH_LOG_KEEP=3 RALPH_NO_GIT=1 bash "$RALPH_SH" 1 2>&1) || true
-  # Count remaining files in logs/ (non-hidden only).
-  log_count=$(ls "$dir/logs/" | wc -l | tr -d ' ')
+  # Count remaining .log files in logs/.
+  log_count=$(ls "$dir/logs/"*.log 2>/dev/null | wc -l | tr -d ' ')
   oldest_1_gone=0
   oldest_2_gone=0
+  archive_kept=0
   [ ! -f "$dir/logs/dummy_1.log" ] && oldest_1_gone=1
   [ ! -f "$dir/logs/dummy_2.log" ] && oldest_2_gone=1
+  [ -f "$dir/logs/archive.txt" ] && archive_kept=1
   cleanup_repo "$dir"
-  # Expect: 3 kept dummies + 1 new run log = 4 total; dummy_1 and dummy_2 deleted.
-  if [ "$log_count" -eq 4 ] && [ "$oldest_1_gone" -eq 1 ] && [ "$oldest_2_gone" -eq 1 ]; then
-    pass "RALPH_LOG_KEEP=3 keeps the 3 newest log files plus the new run log and removes the 2 oldest"
+  # Expect: 3 kept .log dummies + 1 new run .log = 4 .log files; archive.txt preserved.
+  if [ "$log_count" -eq 4 ] && [ "$oldest_1_gone" -eq 1 ] && [ "$oldest_2_gone" -eq 1 ] && [ "$archive_kept" -eq 1 ]; then
+    pass "RALPH_LOG_KEEP=3 keeps the 3 newest .log files plus the new run log, removes the 2 oldest, and preserves non-.log files"
   else
-    fail "RALPH_LOG_KEEP=3: expected 4 files with dummy_1 and dummy_2 deleted, got $log_count files (dummy_1_gone=$oldest_1_gone, dummy_2_gone=$oldest_2_gone); output=$(echo "$output" | head -5)"
+    fail "RALPH_LOG_KEEP=3: expected 4 .log files with dummy_1/2 deleted and archive.txt kept; got log_count=$log_count oldest_1_gone=$oldest_1_gone oldest_2_gone=$oldest_2_gone archive_kept=$archive_kept; output=$(echo "$output" | head -5)"
   fi
 }
 

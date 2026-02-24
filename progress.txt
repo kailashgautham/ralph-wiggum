@@ -1,3 +1,4 @@
 # Progress Tracker
 # Each completed task is logged here by the agent.
 # Format: [DONE] Task description
+[DONE] Restrict log rotation in ralph.sh to files with a .log extension: the mapfile in ralph.sh (line 126) uses 'ls -t "$LOGS_DIR"' which lists all files in logs/ including .tmp scratch files, progress archive .txt files, and any other artifacts, so non-log files count against RALPH_LOG_KEEP and may be unexpectedly deleted; replace the ls invocation with one that filters by extension, e.g. 'ls -t "$LOGS_DIR"/*.log 2>/dev/null', and update the accompanying test (test 12 in tests/run_tests.sh) to verify that a non-.log file placed in logs/ is not counted against the limit and is not deleted by rotation
