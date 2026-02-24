@@ -110,7 +110,10 @@ mkdir -p "$LOGS_DIR"
 
 # Rotate old log files: keep only the RALPH_LOG_KEEP most recent, delete the rest.
 if [ "${RALPH_LOG_KEEP}" -gt 0 ]; then
-  (cd "$LOGS_DIR" && ls -t | tail -n +"$((RALPH_LOG_KEEP + 1))" | xargs rm -f)
+  mapfile -t _log_files < <(ls -t "$LOGS_DIR")
+  if [ "${#_log_files[@]}" -gt "${RALPH_LOG_KEEP}" ]; then
+    (cd "$LOGS_DIR" && rm -f "${_log_files[@]:$RALPH_LOG_KEEP}")
+  fi
 fi
 
 RUN_LOG="$LOGS_DIR/run_$(date +%Y%m%d_%H%M%S).log"
