@@ -23,6 +23,7 @@
 #  18. docker-ralph.sh --dry-run delegates to ralph.sh on the host without invoking Docker
 #  19. RALPH_ITER_HOOK is eval'd with RALPH_CURRENT_ITER exported before the Claude invocation
 #  20. RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=signal when ralph.sh receives SIGTERM
+#  21. Failed planning call preserves progress.txt rather than silently resetting it
 
 set -uo pipefail
 
@@ -547,6 +548,49 @@ MOCKEOF
     pass "RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=signal on SIGTERM"
   else
     fail "RALPH_COMPLETE_HOOK signal: expected 'signal' in hook file, got '$exit_reason'"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Test 21: Failed planning call preserves progress.txt (no silent reset)
+# ---------------------------------------------------------------------------
+echo "Test 21: Failed planning call preserves progress.txt"
+{
+  dir=$(setup_repo)
+  mkdir -p "$dir/bin"
+  # Pre-populate progress.txt with a [DONE] entry to verify it is preserved.
+  echo "[DONE] task alpha" >> "$dir/progress.txt"
+  # Mock claude: outputs COMPLETE on first call (main task), exits 1 on all
+  # subsequent calls (planning call inside ralph_handle_complete).
+  cat > "$dir/bin/claude" << 'MOCKEOF'
+#!/usr/bin/env bash
+counter_file="$(pwd)/claude_call_count.txt"
+count=$(cat "$counter_file" 2>/dev/null || echo 0)
+count=$((count + 1))
+echo "$count" > "$counter_file"
+if [ "$count" -eq 1 ]; then
+  echo "<promise>COMPLETE</promise>"
+  exit 0
+fi
+# Planning and any subsequent calls always fail.
+exit 1
+MOCKEOF
+  chmod +x "$dir/bin/claude"
+  # Run ralph.sh with 1 iteration and MAX_RETRIES=1 so the planning call fails
+  # fast without retrying (and without sleeping between retry attempts).
+  output=$(cd "$dir" && PATH="$dir/bin:$PATH" \
+    MAX_RETRIES=1 \
+    RALPH_NO_GIT=1 \
+    bash "$RALPH_SH" 1 2>&1) || true
+  # progress.txt must still contain the [DONE] entry (not be reset to header only).
+  progress_contents=""
+  [ -f "$dir/progress.txt" ] && progress_contents=$(cat "$dir/progress.txt")
+  cleanup_repo "$dir"
+  if echo "$progress_contents" | grep -qF "[DONE] task alpha" && \
+     echo "$output" | grep -qi "planning call failed"; then
+    pass "Failed planning call preserves progress.txt and logs an error"
+  else
+    fail "Planning failure: expected '[DONE] task alpha' in progress.txt and error in output; progress='$progress_contents', output=$(echo "$output" | head -10)"
   fi
 }
 
