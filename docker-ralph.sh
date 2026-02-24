@@ -46,6 +46,8 @@ Environment variables:
                         inside the container (default: unset)
   RALPH_NO_PR           If non-empty, skip PR creation and leave the branch on
                         the remote for manual review (default: unset)
+  RALPH_PLAN_PROMPT     Override the planning prompt used when all tasks are
+                        complete (default: built-in review-and-rewrite prompt)
   RALPH_SSH_KEY         Path to SSH private key (default: ~/.ssh/id_ed25519)
   GH_TOKEN              GitHub token for PR creation (default: from gh CLI)
 
@@ -199,6 +201,7 @@ ENV_ARGS=()
 [ -n "${RALPH_GIT_EMAIL:-}" ]    && ENV_ARGS+=(-e "RALPH_GIT_EMAIL=${RALPH_GIT_EMAIL}")
 [ -n "${RALPH_NO_GIT:-}" ]       && ENV_ARGS+=(-e "RALPH_NO_GIT=${RALPH_NO_GIT}")
 [ -n "${RALPH_NO_PR:-}" ]        && ENV_ARGS+=(-e "RALPH_NO_PR=${RALPH_NO_PR}")
+[ -n "${RALPH_PLAN_PROMPT:-}" ]  && ENV_ARGS+=(-e "RALPH_PLAN_PROMPT=${RALPH_PLAN_PROMPT}")
 
 # Forward GH_TOKEN for GitHub CLI (gh) inside the container
 if [ -z "${GH_TOKEN:-}" ] && command -v gh &>/dev/null; then

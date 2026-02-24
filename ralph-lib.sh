@@ -2,6 +2,9 @@
 # ralph-lib.sh — Shared helper functions for Ralph scripts.
 # Source this file from ralph.sh and ralph-once.sh; do not execute directly.
 
+# Default planning prompt used when RALPH_PLAN_PROMPT is not set in the environment.
+RALPH_DEFAULT_PLAN_PROMPT="Review the codebase in this directory. The project is a self-improving agentic loop called Ralph. All tasks in PRD.md have been completed (see progress.txt). Your job is to review the code for weaknesses, missing features, or further improvements, then REWRITE the Tasks section in PRD.md with a fresh list of at least 5 unchecked improvement tasks in the format '- [ ] task description'. Replace the existing task list entirely with the new one. Do not modify progress.txt or check off any boxes."
+
 # validate_int VAR_NAME
 # Checks that the named variable holds a positive integer value.
 # Prints an error and exits 1 if it does not.
@@ -248,7 +251,7 @@ ralph_handle_complete() {
   echo ""
   _ralph_log "$done_msg"
 
-  local plan_prompt="Review the codebase in this directory. The project is a self-improving agentic loop called Ralph. All tasks in PRD.md have been completed (see progress.txt). Your job is to review the code for weaknesses, missing features, or further improvements, then REWRITE the Tasks section in PRD.md with a fresh list of at least 5 unchecked improvement tasks in the format '- [ ] task description'. Replace the existing task list entirely with the new one. Do not modify progress.txt or check off any boxes."
+  local plan_prompt="${RALPH_PLAN_PROMPT:-$RALPH_DEFAULT_PLAN_PROMPT}"
 
   ralph_run_planning_call "$plan_prompt"
 
