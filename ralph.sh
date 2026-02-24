@@ -44,6 +44,11 @@ Environment variables:
                         (stall limit reached), or "max_iterations" (loop limit
                         reached). Useful for notifications or cleanup.
 
+Notes:
+  Credit exhaustion: if the Claude CLI fails with a credit/quota error,
+  ralph pauses for 1 hour and retries automatically. This repeats until
+  credits are restored or the process is interrupted.
+
 Examples:
   ./ralph.sh                  # Run up to 20 iterations
   ./ralph.sh 10               # Run up to 10 iterations

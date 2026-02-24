@@ -16,6 +16,9 @@
 #  11. ralph-once.sh status counts completed vs remaining correctly
 #  12. RALPH_LOG_KEEP=N deletes old log files beyond the keep limit
 #  13. prompt.txt override is used instead of the default prompt
+#  14. RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=stall on stall exit
+#  15. RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=max_iterations on max iterations exit
+#  16. RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=complete on COMPLETE signal
 
 set -uo pipefail
 
@@ -351,6 +354,86 @@ MOCKEOF
     pass "prompt.txt sentinel is passed as the prompt and default prompt text is absent"
   else
     fail "prompt.txt override: expected sentinel in captured prompt without default text; sentinel='$SENTINEL', captured='$(echo "$captured" | head -3)'"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Test 14: RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=stall on stall exit
+# ---------------------------------------------------------------------------
+echo "Test 14: RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=stall on stall exit"
+{
+  dir=$(setup_repo)
+  install_mock_claude_noop "$dir"
+  output=$(cd "$dir" && PATH="$dir/bin:$PATH" \
+    RALPH_MAX_STALLS=1 \
+    RALPH_NO_GIT=1 \
+    RALPH_COMPLETE_HOOK='echo "$RALPH_EXIT_REASON" > hook_exit_reason.txt' \
+    bash "$RALPH_SH" 10 2>&1) || true
+  exit_reason=""
+  [ -f "$dir/hook_exit_reason.txt" ] && exit_reason=$(cat "$dir/hook_exit_reason.txt")
+  cleanup_repo "$dir"
+  if echo "$exit_reason" | grep -q "stall"; then
+    pass "RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=stall on stall exit"
+  else
+    fail "RALPH_COMPLETE_HOOK stall: expected 'stall' in hook file, got '$exit_reason'"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Test 15: RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=max_iterations on max iterations exit
+# ---------------------------------------------------------------------------
+echo "Test 15: RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=max_iterations on max iterations exit"
+{
+  dir=$(setup_repo)
+  install_mock_claude_noop "$dir"
+  output=$(cd "$dir" && PATH="$dir/bin:$PATH" \
+    RALPH_MAX_STALLS=99 \
+    RALPH_NO_GIT=1 \
+    RALPH_COMPLETE_HOOK='echo "$RALPH_EXIT_REASON" > hook_exit_reason.txt' \
+    bash "$RALPH_SH" 1 2>&1) || true
+  exit_reason=""
+  [ -f "$dir/hook_exit_reason.txt" ] && exit_reason=$(cat "$dir/hook_exit_reason.txt")
+  cleanup_repo "$dir"
+  if echo "$exit_reason" | grep -q "max_iterations"; then
+    pass "RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=max_iterations on max iterations exit"
+  else
+    fail "RALPH_COMPLETE_HOOK max_iterations: expected 'max_iterations' in hook file, got '$exit_reason'"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Test 16: RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=complete on COMPLETE signal
+# ---------------------------------------------------------------------------
+echo "Test 16: RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=complete on COMPLETE signal"
+{
+  dir=$(setup_repo)
+  mkdir -p "$dir/bin"
+  # Mock claude: outputs COMPLETE on first invocation, no-op on all subsequent calls.
+  cat > "$dir/bin/claude" << 'MOCKEOF'
+#!/usr/bin/env bash
+counter_file="$(pwd)/claude_call_count.txt"
+count=$(cat "$counter_file" 2>/dev/null || echo 0)
+count=$((count + 1))
+echo "$count" > "$counter_file"
+if [ "$count" -eq 1 ]; then
+  echo "<promise>COMPLETE</promise>"
+fi
+exit 0
+MOCKEOF
+  chmod +x "$dir/bin/claude"
+  # Use append (>>) so both "complete" and the subsequent "stall" reason are captured.
+  output=$(cd "$dir" && PATH="$dir/bin:$PATH" \
+    RALPH_MAX_STALLS=1 \
+    RALPH_NO_GIT=1 \
+    RALPH_COMPLETE_HOOK='echo "$RALPH_EXIT_REASON" >> hook_exit_reason.txt' \
+    bash "$RALPH_SH" 5 2>&1) || true
+  hook_contents=""
+  [ -f "$dir/hook_exit_reason.txt" ] && hook_contents=$(cat "$dir/hook_exit_reason.txt")
+  cleanup_repo "$dir"
+  if echo "$hook_contents" | grep -q "complete"; then
+    pass "RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=complete when COMPLETE signal is detected"
+  else
+    fail "RALPH_COMPLETE_HOOK complete: expected 'complete' in hook file, got '$hook_contents'"
   fi
 }
 

@@ -15,6 +15,15 @@ _ralph_fire_hook() {
   fi
 }
 
+# _ralph_is_credit_error OUTPUT
+# Returns 0 if OUTPUT appears to indicate a credit/quota exhaustion error
+# from the Claude CLI, 1 otherwise. Used to trigger a long retry delay
+# instead of failing fast after the normal MAX_RETRIES attempts.
+_ralph_is_credit_error() {
+  local output="$1"
+  echo "$output" | grep -qiE "credit balance|insufficient credit|out of credit|usage limit|quota exceed|payment required|402 Payment|billing"
+}
+
 # validate_int VAR_NAME
 # Checks that the named variable holds a positive integer value.
 # Prints an error and exits 1 if it does not.
@@ -221,6 +230,12 @@ ralph_run_main_call() {
     if [ "$exit_code" -eq 0 ]; then
       break
     fi
+    # Credit exhaustion: pause for an hour and retry indefinitely.
+    if _ralph_is_credit_error "$(cat "$tmpfile")"; then
+      echo "Warning: Credits exhausted. Waiting 1 hour before retry..." >&2
+      sleep 3600
+      continue
+    fi
     echo "Warning: Claude CLI failed (attempt $attempt/$max_retries, exit code $exit_code)" >&2
     if [ $attempt -lt $max_retries ]; then
       local backoff=$(( retry_delay * (1 << (attempt - 1)) ))
@@ -294,17 +309,26 @@ ralph_run_planning_call() {
   if [ -n "${CLAUDE_MODEL:-}" ]; then
     plan_cmd+=(--model "$CLAUDE_MODEL")
   fi
+  local plan_tmpfile
+  plan_tmpfile=$(mktemp "${LOGS_DIR:-/tmp}/claude_plan_XXXXXX")
   local attempt=1
   local exit_code=1
   while [ $attempt -le $max_retries ]; do
     if [ -n "${RALPH_TIMEOUT:-}" ]; then
-      timeout "$RALPH_TIMEOUT" "${plan_cmd[@]}" 2>&1 | tee -a "${RUN_LOG:-/dev/null}"
+      timeout "$RALPH_TIMEOUT" "${plan_cmd[@]}" 2>&1 | tee "$plan_tmpfile" | tee -a "${RUN_LOG:-/dev/null}"
     else
-      "${plan_cmd[@]}" 2>&1 | tee -a "${RUN_LOG:-/dev/null}"
+      "${plan_cmd[@]}" 2>&1 | tee "$plan_tmpfile" | tee -a "${RUN_LOG:-/dev/null}"
     fi
     exit_code=${PIPESTATUS[0]}
     if [ "$exit_code" -eq 0 ]; then
+      rm -f "$plan_tmpfile"
       return 0
+    fi
+    # Credit exhaustion: pause for an hour and retry indefinitely.
+    if _ralph_is_credit_error "$(cat "$plan_tmpfile")"; then
+      echo "Warning: Credits exhausted during planning call. Waiting 1 hour before retry..." >&2
+      sleep 3600
+      continue
     fi
     echo "Warning: Planning call failed (attempt $attempt/$max_retries, exit code $exit_code)" | tee -a "${RUN_LOG:-/dev/null}" >&2
     if [ $attempt -lt $max_retries ]; then
@@ -315,6 +339,7 @@ ralph_run_planning_call() {
     fi
     attempt=$((attempt + 1))
   done
+  rm -f "$plan_tmpfile"
   echo "Warning: Planning call failed after $max_retries attempts. Proceeding with archive/reset." | tee -a "${RUN_LOG:-/dev/null}" >&2
   return 1
 }
