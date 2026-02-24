@@ -134,6 +134,33 @@ When ALL tasks in PRD.md are complete, output the token: <promise>COMPLETE</prom
 
 Save this as `prompt.txt` in the project root and Ralph will use it on every subsequent iteration.
 
+### Environment variables
+
+Key variables accepted by both `ralph.sh` and `ralph-once.sh`:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CLAUDE_MODEL` | claude default | Claude model to use |
+| `RALPH_TIMEOUT` | none | Per-iteration timeout in seconds |
+| `RALPH_ALLOWED_TOOLS` | `Edit,Write,Bash,Read,Glob,Grep` | Comma-separated Claude tools to allow |
+| `RALPH_BASE_BRANCH` | `main` | Git base branch for PRs |
+| `MAX_RETRIES` | `3` | Retry attempts on Claude CLI failure |
+| `RALPH_RETRY_DELAY` | `5` | Base delay in seconds between retries |
+| `RALPH_NO_GIT` | unset | Set to any non-empty value to skip all git operations (diff check, commit, push, and PR creation). Useful for local experimentation, environments without git configured, or when using a custom VCS workflow. |
+
+`ralph.sh` also accepts:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RALPH_MAX_STALLS` | `3` | Consecutive no-progress iterations before abort |
+| `RALPH_LOG_KEEP` | `50` | Number of log files to retain (0 = keep all) |
+
+**Example — run without any git operations:**
+```bash
+RALPH_NO_GIT=1 ./ralph-once.sh
+RALPH_NO_GIT=1 ./ralph.sh 5
+```
+
 ### Testing
 
 The `tests/run_tests.sh` script validates argument handling and core behaviour for `ralph.sh`, `ralph-once.sh`, and `docker-ralph.sh`. Run it directly from the repo root:
