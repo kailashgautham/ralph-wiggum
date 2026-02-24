@@ -139,10 +139,10 @@ if [ "${1:-}" = "cleanup" ]; then
   echo "Cleaning up Ralph Docker containers and images..."
 
   # Remove any stopped containers that used the ralph image
-  CONTAINERS=$(docker ps -a --filter "ancestor=${IMAGE_NAME}" -q)
-  if [ -n "$CONTAINERS" ]; then
+  mapfile -t CONTAINERS < <(docker ps -a --filter "ancestor=${IMAGE_NAME}" -q)
+  if [ "${#CONTAINERS[@]}" -gt 0 ]; then
     echo "Removing stopped containers..."
-    docker rm -f $CONTAINERS
+    docker rm -f "${CONTAINERS[@]}"
   else
     echo "No containers to remove."
   fi
@@ -156,10 +156,10 @@ if [ "${1:-}" = "cleanup" ]; then
   fi
 
   # Remove dangling (untagged) images left over from builds
-  DANGLING=$(docker images -f "dangling=true" -q)
-  if [ -n "$DANGLING" ]; then
+  mapfile -t DANGLING < <(docker images -f "dangling=true" -q)
+  if [ "${#DANGLING[@]}" -gt 0 ]; then
     echo "Removing dangling images..."
-    docker rmi $DANGLING
+    docker rmi "${DANGLING[@]}"
   fi
 
   # Offer to delete .claude-auth/ credentials directory
