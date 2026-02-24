@@ -25,6 +25,7 @@
 #  20. RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=signal when ralph.sh receives SIGTERM
 #  21. Failed planning call preserves progress.txt rather than silently resetting it
 #  22. SIGTERM removes claude_output_*.tmp tmpfiles from logs/
+#  23. RALPH_CREDIT_WAIT_MAX caps credit-exhaustion retries to a finite count
 
 set -uo pipefail
 
@@ -637,6 +638,40 @@ MOCKEOF
     pass "SIGTERM removes claude_output_*.tmp tmpfiles from logs/"
   else
     fail "SIGTERM cleanup: expected 0 claude_output_*.tmp files in logs/, got $tmp_count"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Test 23: RALPH_CREDIT_WAIT_MAX caps credit-exhaustion retries
+# ---------------------------------------------------------------------------
+echo "Test 23: RALPH_CREDIT_WAIT_MAX caps credit-exhaustion retries"
+{
+  dir=$(setup_repo)
+  mkdir -p "$dir/bin"
+  # Mock claude: always outputs a credit-exhaustion error and exits 1.
+  cat > "$dir/bin/claude" << 'MOCKEOF'
+#!/usr/bin/env bash
+echo "Error: credit balance too low to perform this action"
+exit 1
+MOCKEOF
+  chmod +x "$dir/bin/claude"
+  # Mock sleep: exits instantly so the test does not actually wait 3600 seconds.
+  cat > "$dir/bin/sleep" << 'MOCKEOF'
+#!/usr/bin/env bash
+exit 0
+MOCKEOF
+  chmod +x "$dir/bin/sleep"
+  output=$(cd "$dir" && PATH="$dir/bin:$PATH" \
+    RALPH_CREDIT_WAIT_MAX=1 \
+    MAX_RETRIES=1 \
+    RALPH_NO_GIT=1 \
+    bash "$RALPH_SH" 1 2>&1) || true
+  cleanup_repo "$dir"
+  if echo "$output" | grep -q "Credit-exhaustion wait limit" && \
+     echo "$output" | grep -q "RALPH_CREDIT_WAIT_MAX=1"; then
+    pass "RALPH_CREDIT_WAIT_MAX=1 caps credit-exhaustion retries and logs the limit error"
+  else
+    fail "RALPH_CREDIT_WAIT_MAX: expected credit limit error in output; got: $(echo "$output" | head -10)"
   fi
 }
 

@@ -156,6 +156,7 @@ Key variables accepted by both `ralph.sh` and `ralph-once.sh`:
 |----------|---------|-------------|
 | `RALPH_MAX_STALLS` | `3` | Consecutive no-progress iterations before abort |
 | `RALPH_LOG_KEEP` | `50` | Number of log files to retain (0 = keep all) |
+| `RALPH_CREDIT_WAIT_MAX` | `0` | Maximum number of 1-hour credit-exhaustion waits before giving up (0 = unlimited). |
 | `RALPH_COMPLETE_HOOK` | unset | Shell command executed (via `eval`) immediately before any terminal exit. `RALPH_EXIT_REASON` is exported as `"complete"` (all tasks done and new tasks generated), `"stall"` (stall limit reached), `"max_iterations"` (loop limit reached), or `"signal"` (SIGINT/SIGTERM received). Useful for notifications, e.g. `RALPH_COMPLETE_HOOK='curl -s -X POST "$WEBHOOK_URL" -d "{\"reason\":\"$RALPH_EXIT_REASON\"}"'`. |
 | `RALPH_ITER_HOOK` | unset | Shell command executed (via `eval`) at the start of each iteration, immediately before the Claude invocation. `RALPH_CURRENT_ITER` (1-based iteration number) and `RALPH_MAX_ITER` (the max iterations value) are exported before the hook runs. Useful for per-iteration notifications or pre-flight checks. |
 

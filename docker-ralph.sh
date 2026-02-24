@@ -57,6 +57,9 @@ Environment variables:
                         RALPH_CURRENT_ITER (1-based iteration number) and
                         RALPH_MAX_ITER (the max iterations value) are exported
                         before the hook runs.
+  RALPH_CREDIT_WAIT_MAX Maximum number of 1-hour credit-exhaustion waits before
+                        giving up (default: 0 = wait indefinitely until credits
+                        are restored). Set to a positive integer to cap retries.
   RALPH_SSH_KEY         Path to SSH private key (default: ~/.ssh/id_ed25519)
   GH_TOKEN              GitHub token for PR creation (default: from gh CLI)
 
@@ -210,9 +213,10 @@ ENV_ARGS=()
 [ -n "${RALPH_GIT_EMAIL:-}" ]    && ENV_ARGS+=(-e "RALPH_GIT_EMAIL=${RALPH_GIT_EMAIL}")
 [ -n "${RALPH_NO_GIT:-}" ]       && ENV_ARGS+=(-e "RALPH_NO_GIT=${RALPH_NO_GIT}")
 [ -n "${RALPH_NO_PR:-}" ]        && ENV_ARGS+=(-e "RALPH_NO_PR=${RALPH_NO_PR}")
-[ -n "${RALPH_PLAN_PROMPT:-}" ]    && ENV_ARGS+=(-e "RALPH_PLAN_PROMPT=${RALPH_PLAN_PROMPT}")
-[ -n "${RALPH_COMPLETE_HOOK:-}" ] && ENV_ARGS+=(-e "RALPH_COMPLETE_HOOK=${RALPH_COMPLETE_HOOK}")
-[ -n "${RALPH_ITER_HOOK:-}" ]    && ENV_ARGS+=(-e "RALPH_ITER_HOOK=${RALPH_ITER_HOOK}")
+[ -n "${RALPH_PLAN_PROMPT:-}" ]       && ENV_ARGS+=(-e "RALPH_PLAN_PROMPT=${RALPH_PLAN_PROMPT}")
+[ -n "${RALPH_COMPLETE_HOOK:-}" ]    && ENV_ARGS+=(-e "RALPH_COMPLETE_HOOK=${RALPH_COMPLETE_HOOK}")
+[ -n "${RALPH_ITER_HOOK:-}" ]        && ENV_ARGS+=(-e "RALPH_ITER_HOOK=${RALPH_ITER_HOOK}")
+[ -n "${RALPH_CREDIT_WAIT_MAX:-}" ] && ENV_ARGS+=(-e "RALPH_CREDIT_WAIT_MAX=${RALPH_CREDIT_WAIT_MAX}")
 
 # Forward GH_TOKEN for GitHub CLI (gh) inside the container
 if [ -z "${GH_TOKEN:-}" ] && command -v gh &>/dev/null; then

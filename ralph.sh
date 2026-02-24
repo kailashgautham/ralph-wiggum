@@ -50,11 +50,15 @@ Environment variables:
                         RALPH_MAX_ITER (the max iterations value) are exported
                         before the hook runs. Useful for per-iteration
                         notifications or pre-flight checks.
+  RALPH_CREDIT_WAIT_MAX Maximum number of 1-hour credit-exhaustion waits before
+                        giving up (default: 0 = wait indefinitely until credits
+                        are restored). Set to a positive integer to cap retries.
 
 Notes:
   Credit exhaustion: if the Claude CLI fails with a credit/quota error,
   ralph pauses for 1 hour and retries automatically. This repeats until
-  credits are restored or the process is interrupted.
+  credits are restored, the process is interrupted, or RALPH_CREDIT_WAIT_MAX
+  is reached.
 
 Examples:
   ./ralph.sh                  # Run up to 20 iterations
@@ -111,11 +115,13 @@ RALPH_ALLOWED_TOOLS=${RALPH_ALLOWED_TOOLS:-"Edit,Write,Bash,Read,Glob,Grep"}
 RALPH_BASE_BRANCH=${RALPH_BASE_BRANCH:-main}
 RALPH_LOG_KEEP=${RALPH_LOG_KEEP:-50}
 RALPH_ITER_HOOK=${RALPH_ITER_HOOK:-}
+RALPH_CREDIT_WAIT_MAX=${RALPH_CREDIT_WAIT_MAX:-0}
 
 validate_int MAX
 validate_int MAX_RETRIES
 validate_int RALPH_MAX_STALLS
 validate_non_negative_int RALPH_LOG_KEEP
+validate_non_negative_int RALPH_CREDIT_WAIT_MAX
 if [ -n "$RALPH_TIMEOUT" ]; then validate_int RALPH_TIMEOUT; fi
 
 LOGS_DIR="logs"

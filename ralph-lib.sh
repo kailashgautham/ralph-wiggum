@@ -201,14 +201,16 @@ ralph_next_task() {
 
 # _ralph_invoke_claude_with_retry CMD_ARRAY_NAME CAPTURE_OUTPUT
 # Internal shared helper: runs the claude command with retry/backoff logic,
-# including the credit-exhaustion branch (1-hour pause + indefinite retry).
+# including the credit-exhaustion branch (1-hour pause + retry, capped by
+# RALPH_CREDIT_WAIT_MAX).
 #   CMD_ARRAY_NAME   name of a bash array variable holding the command + args
 #   CAPTURE_OUTPUT   "yes" → tee output to a tmp file, then set the global
 #                            OUTPUT variable from that file after the loop;
 #                            does NOT additionally pipe to RUN_LOG
 #                    "no"  → tee output to a tmp file AND additionally pipe to
 #                            ${RUN_LOG:-/dev/null}
-# Globals used: MAX_RETRIES, RETRY_DELAY, RALPH_TIMEOUT, LOGS_DIR, RUN_LOG
+# Globals used: MAX_RETRIES, RETRY_DELAY, RALPH_TIMEOUT, RALPH_CREDIT_WAIT_MAX,
+#               LOGS_DIR, RUN_LOG
 # Sets global OUTPUT (when CAPTURE_OUTPUT="yes"). Returns the final exit code.
 _ralph_invoke_claude_with_retry() {
   local cmd_array_name="$1"
@@ -216,6 +218,8 @@ _ralph_invoke_claude_with_retry() {
   local -n _cmd_ref="$cmd_array_name"
   local max_retries="${MAX_RETRIES:-3}"
   local retry_delay="${RETRY_DELAY:-5}"
+  local credit_wait_max="${RALPH_CREDIT_WAIT_MAX:-0}"
+  local credit_wait_count=0
   local tmpfile
   tmpfile=$(mktemp "${LOGS_DIR:-/tmp}/claude_output_XXXXXX.tmp")
   local attempt=1
@@ -243,8 +247,14 @@ _ralph_invoke_claude_with_retry() {
     if [ "$exit_code" -eq 0 ]; then
       break
     fi
-    # Credit exhaustion: pause for an hour and retry indefinitely.
+    # Credit exhaustion: pause for an hour and retry (up to credit_wait_max times,
+    # or indefinitely when credit_wait_max is 0).
     if _ralph_is_credit_error "$(cat "$tmpfile")"; then
+      if [ "$credit_wait_max" -gt 0 ] && [ "$credit_wait_count" -ge "$credit_wait_max" ]; then
+        echo "Error: Credit-exhaustion wait limit (RALPH_CREDIT_WAIT_MAX=$credit_wait_max) reached. Giving up." >&2
+        break
+      fi
+      credit_wait_count=$((credit_wait_count + 1))
       echo "Warning: Credits exhausted. Waiting 1 hour before retry..." >&2
       sleep 3600
       continue
