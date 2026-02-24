@@ -212,45 +212,6 @@ else
   PROMPT="$DEFAULT_PROMPT"
 fi
 
-run_claude() {
-  local attempt=1
-  local tmpfile="$LOGS_DIR/claude_output_$$.tmp"
-  while [ $attempt -le $MAX_RETRIES ]; do
-    # Build command as array to avoid shell injection from PROMPT content
-    local CMD=(claude -p "$PROMPT" --allowedTools "$RALPH_ALLOWED_TOOLS" --verbose)
-    if [ -n "$CLAUDE_MODEL" ]; then
-      CMD+=(--model "$CLAUDE_MODEL")
-    fi
-    # Stream output to terminal in real-time while capturing it
-    if [ -n "$RALPH_TIMEOUT" ]; then
-      timeout "$RALPH_TIMEOUT" "${CMD[@]}" 2>&1 | tee "$tmpfile"
-    else
-      "${CMD[@]}" 2>&1 | tee "$tmpfile"
-    fi
-    local exit_code=${PIPESTATUS[0]}
-    if [ "$exit_code" -eq 124 ]; then
-      echo "Warning: Claude invocation timed out after ${RALPH_TIMEOUT}s (attempt $attempt/$MAX_RETRIES)" >&2
-    fi
-    if [ $exit_code -eq 0 ]; then
-      OUTPUT=$(cat "$tmpfile")
-      rm -f "$tmpfile"
-      return 0
-    fi
-    echo "Warning: Claude CLI failed (attempt $attempt/$MAX_RETRIES, exit code $exit_code)" >&2
-    if [ $attempt -lt $MAX_RETRIES ]; then
-      BACKOFF=$(( RETRY_DELAY * (1 << (attempt - 1)) ))
-      if [ "$BACKOFF" -gt 60 ]; then BACKOFF=60; fi
-      echo "Retrying in ${BACKOFF}s..." >&2
-      sleep "$BACKOFF"
-    fi
-    attempt=$((attempt + 1))
-  done
-  echo "Error: Claude CLI failed after $MAX_RETRIES attempts." >&2
-  OUTPUT=$(cat "$tmpfile" 2>/dev/null)
-  rm -f "$tmpfile"
-  return 1
-}
-
 for i in $(seq 1 "$MAX"); do
   CURRENT_ITER=$i
   ITER_HEADER="=== Ralph iteration $i/$MAX === $(date '+%Y-%m-%d %H:%M:%S') ==="
@@ -261,7 +222,7 @@ for i in $(seq 1 "$MAX"); do
   DONE_BEFORE=${DONE_BEFORE:-0}
 
   OUTPUT=""
-  if ! run_claude; then
+  if ! ralph_run_main_call "$PROMPT"; then
     MSG="Skipping iteration $i due to repeated Claude CLI failures."
     echo "$MSG" >&2
     echo "$MSG" >> "$RUN_LOG"
