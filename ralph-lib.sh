@@ -2,6 +2,12 @@
 # ralph-lib.sh — Shared helper functions for Ralph scripts.
 # Source this file from ralph.sh and ralph-once.sh; do not execute directly.
 
+# Default prompt used when RALPH_PROMPT is not set and no prompt.txt is present.
+RALPH_DEFAULT_PROMPT="You are working on a software project. Read PRD.md for the full plan and progress.txt for completed tasks.
+Pick the next uncompleted task from PRD.md, implement it, then append a line to progress.txt in the format:
+  [DONE] <task description>
+When ALL tasks in PRD.md are complete, output the token: <promise>COMPLETE</promise>"
+
 # Default planning prompt used when RALPH_PLAN_PROMPT is not set in the environment.
 RALPH_DEFAULT_PLAN_PROMPT="Review the codebase in this directory. The project is a self-improving agentic loop called Ralph. All tasks in PRD.md have been completed (see progress.txt). Your job is to review the code for weaknesses, missing features, or further improvements, then REWRITE the Tasks section in PRD.md with a fresh list of at least 5 unchecked improvement tasks in the format '- [ ] task description'. Replace the existing task list entirely with the new one. Do not modify progress.txt or check off any boxes."
 

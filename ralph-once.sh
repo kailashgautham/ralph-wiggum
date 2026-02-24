@@ -101,16 +101,11 @@ trap 'rm -f "$LOCKFILE"' EXIT
 RUN_HEADER="=== Ralph single iteration === $(date '+%Y-%m-%d %H:%M:%S') ==="
 echo "$RUN_HEADER" | tee -a "$RUN_LOG"
 
-DEFAULT_PROMPT="You are working on a software project. Read PRD.md for the full plan and progress.txt for completed tasks.
-Pick the next uncompleted task from PRD.md, implement it, then append a line to progress.txt in the format:
-  [DONE] <task description>
-When ALL tasks in PRD.md are complete, output the token: <promise>COMPLETE</promise>"
-
 if [ -f "prompt.txt" ]; then
   PROMPT=$(cat prompt.txt)
   echo "Using prompt from prompt.txt"
 else
-  PROMPT="$DEFAULT_PROMPT"
+  PROMPT="${RALPH_DEFAULT_PROMPT}"
 fi
 
 OUTPUT=""
