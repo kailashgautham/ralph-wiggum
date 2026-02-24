@@ -315,7 +315,12 @@ ralph_handle_complete() {
 
   local plan_prompt="${RALPH_PLAN_PROMPT:-$RALPH_DEFAULT_PLAN_PROMPT}"
 
-  ralph_run_planning_call "$plan_prompt"
+  local plan_exit_code=0
+  ralph_run_planning_call "$plan_prompt" || plan_exit_code=$?
+  if [ "$plan_exit_code" -ne 0 ]; then
+    _ralph_log "Error: Planning call failed permanently. progress.txt has been preserved. Resolve the planning failure manually before restarting Ralph."
+    return 1
+  fi
 
   # Archive completed progress entries and reset progress.txt for the new cycle.
   local archive_file
@@ -333,8 +338,9 @@ ralph_handle_complete() {
 # Invokes Claude with PROMPT for the planning/task-generation phase.
 # Retries up to MAX_RETRIES times with exponential backoff, logging output to
 # RUN_LOG (when set). Includes --verbose so planning-phase tool calls are
-# visible. Logs a warning and returns 1 if all attempts fail (non-fatal:
-# callers are expected to proceed with archive/reset regardless).
+# visible. Logs a warning and returns 1 if all attempts fail. Callers must
+# check the return value and handle failure appropriately (e.g. preserving
+# progress.txt rather than archiving/resetting it).
 #
 # Globals used: CLAUDE_MODEL, RALPH_TIMEOUT, RALPH_ALLOWED_TOOLS,
 #               MAX_RETRIES, RETRY_DELAY, RUN_LOG
@@ -350,6 +356,6 @@ ralph_run_planning_call() {
   if [ "$exit_code" -eq 0 ]; then
     return 0
   fi
-  echo "Warning: Planning call failed after ${MAX_RETRIES:-3} attempts. Proceeding with archive/reset." | tee -a "${RUN_LOG:-/dev/null}" >&2
+  echo "Warning: Planning call failed after ${MAX_RETRIES:-3} attempts." | tee -a "${RUN_LOG:-/dev/null}" >&2
   return 1
 }
