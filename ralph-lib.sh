@@ -91,6 +91,86 @@ ralph_commit_push_pr() {
   git pull --ff-only origin "$RALPH_BASE_BRANCH" 2>/dev/null || true
 }
 
+# ralph_show_status
+# Prints a summary of completed and remaining tasks from PRD.md and progress.txt.
+# Exits 0 on success, 1 if PRD.md is not found.
+ralph_show_status() {
+  echo "=== Ralph Status ==="
+
+  if [ ! -f "PRD.md" ]; then
+    echo "Error: PRD.md not found." >&2
+    exit 1
+  fi
+
+  # Extract task descriptions from PRD.md (both unchecked and checked boxes)
+  local -a ALL_TASKS
+  mapfile -t ALL_TASKS < <(grep -E '^\- \[[ x]\] ' PRD.md | sed 's/^- \[[ x]\] //')
+
+  local TOTAL=${#ALL_TASKS[@]}
+  local COMPLETED=0
+  local REMAINING=0
+  local -a REMAINING_TASKS=()
+  local -a COMPLETED_TASKS=()
+
+  local task
+  for task in "${ALL_TASKS[@]}"; do
+    if grep -qxF "[DONE] $task" progress.txt 2>/dev/null; then
+      COMPLETED=$((COMPLETED + 1))
+      COMPLETED_TASKS+=("$task")
+    else
+      REMAINING=$((REMAINING + 1))
+      REMAINING_TASKS+=("$task")
+    fi
+  done
+
+  echo "Tasks: $TOTAL total, $COMPLETED completed, $REMAINING remaining"
+  echo ""
+
+  if [ ${#COMPLETED_TASKS[@]} -gt 0 ]; then
+    echo "Completed:"
+    for task in "${COMPLETED_TASKS[@]}"; do
+      echo "  [x] $task"
+    done
+    echo ""
+  fi
+
+  if [ ${#REMAINING_TASKS[@]} -gt 0 ]; then
+    echo "Remaining:"
+    for task in "${REMAINING_TASKS[@]}"; do
+      echo "  [ ] $task"
+    done
+  else
+    echo "All tasks complete!"
+  fi
+
+  exit 0
+}
+
+# ralph_next_task
+# Prints the next uncompleted task from PRD.md and exits 0.
+# If all tasks are complete, prints "All tasks complete." and exits 0.
+# Exits 1 if PRD.md is not found.
+ralph_next_task() {
+  if [ ! -f "PRD.md" ]; then
+    echo "Error: PRD.md not found." >&2
+    exit 1
+  fi
+
+  local -a ALL_TASKS
+  mapfile -t ALL_TASKS < <(grep -E '^\- \[[ x]\] ' PRD.md | sed 's/^- \[[ x]\] //')
+
+  local task
+  for task in "${ALL_TASKS[@]}"; do
+    if ! grep -qxF "[DONE] $task" progress.txt 2>/dev/null; then
+      echo "Next task: $task"
+      exit 0
+    fi
+  done
+
+  echo "All tasks complete."
+  exit 0
+}
+
 # ralph_run_main_call PROMPT
 # Invokes Claude with PROMPT for the main task execution phase.
 # Streams output to the terminal in real-time and captures it to a temp file.
