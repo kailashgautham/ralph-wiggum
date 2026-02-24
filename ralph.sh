@@ -167,6 +167,9 @@ fi
 
 RUN_LOG="$LOGS_DIR/run_$(date +%Y%m%d_%H%M%S).log"
 
+START_TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+START_TIME=$(date +%s)
+
 CURRENT_ITER=0
 STALL_COUNT=0
 
@@ -182,6 +185,20 @@ handle_signal() {
 
 trap 'handle_signal SIGINT'  INT
 trap 'handle_signal SIGTERM' TERM
+
+print_run_summary() {
+  local exit_path="$1"
+  local end_timestamp end_time elapsed done_count
+  end_timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+  end_time=$(date +%s)
+  elapsed=$(( end_time - START_TIME ))
+  done_count=$(grep -c '^\[DONE\]' progress.txt 2>/dev/null) || done_count=0
+  local summary
+  summary="=== Run summary | Exit: $exit_path | Start: $START_TIMESTAMP | End: $end_timestamp | Elapsed: ${elapsed}s | Iterations: $CURRENT_ITER/$MAX | Tasks completed: $done_count ==="
+  echo ""
+  echo "$summary"
+  echo "$summary" >> "$RUN_LOG"
+}
 
 DEFAULT_PROMPT="You are working on a software project. Read PRD.md for the full plan and progress.txt for completed tasks.
 Pick the next uncompleted task from PRD.md, implement it, then append a line to progress.txt in the format:
@@ -287,6 +304,7 @@ for i in $(seq 1 "$MAX"); do
     DONE_MSG="=== All tasks complete after $i iteration(s). Generating new tasks... ==="
     echo ""
     echo "$DONE_MSG" | tee -a "$RUN_LOG"
+    print_run_summary "all tasks complete"
 
     PLAN_PROMPT="Review the codebase in this directory. The project is a self-improving agentic loop called Ralph. All tasks in PRD.md have been completed (see progress.txt). Your job is to review the code for weaknesses, missing features, or further improvements, then REWRITE the Tasks section in PRD.md with a fresh list of at least 5 unchecked improvement tasks in the format '- [ ] task description'. Replace the existing task list entirely with the new one. Do not modify progress.txt or check off any boxes."
 
@@ -307,6 +325,7 @@ for i in $(seq 1 "$MAX"); do
   fi
 done
 
+print_run_summary "max iterations reached"
 LIMIT_MSG="=== Reached max iterations ($MAX) without completion signal. ==="
 echo "$LIMIT_MSG"
 echo "$LIMIT_MSG" >> "$RUN_LOG"
