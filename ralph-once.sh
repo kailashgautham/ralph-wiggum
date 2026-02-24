@@ -31,6 +31,10 @@ Environment variables:
                         on the remote for manual review
   RALPH_PLAN_PROMPT     Override the planning prompt used when all tasks are
                         complete (default: built-in review-and-rewrite prompt)
+  RALPH_COMPLETE_HOOK   Shell command executed (via eval) immediately before
+                        ralph-once.sh exits via its terminal path. RALPH_EXIT_REASON
+                        is exported as "complete" (all tasks done). Useful for
+                        notifications or cleanup.
 
 Examples:
   ./ralph-once.sh
@@ -132,6 +136,7 @@ else
 fi
 
 if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
+  _ralph_fire_hook "complete"
   ralph_handle_complete "single iteration"
   exit 0
 fi
