@@ -1,3 +1,5 @@
 # Progress Tracker
 # Each completed task is logged here by the agent.
 # Format: [DONE] Task description
+
+[DONE] Remove the duplicate run_claude() function from ralph.sh and replace it with a call to ralph_run_main_call() from ralph-lib.sh: ralph.sh still contains its own local run_claude() function (defined around line 215) that is nearly identical to ralph_run_main_call() added to ralph-lib.sh; the extraction task only updated ralph-once.sh but left ralph.sh with its own copy; delete run_claude() from ralph.sh, replace the call to run_claude on the loop iteration line with ralph_run_main_call "$PROMPT", and confirm that OUTPUT is still set correctly for the COMPLETE check and log write that follow
