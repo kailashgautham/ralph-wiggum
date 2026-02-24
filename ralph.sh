@@ -43,6 +43,12 @@ Environment variables:
                         is exported as "complete" (all tasks done), "stall"
                         (stall limit reached), or "max_iterations" (loop limit
                         reached). Useful for notifications or cleanup.
+  RALPH_ITER_HOOK       Shell command executed (via eval) at the start of each
+                        iteration, immediately before the Claude invocation.
+                        RALPH_CURRENT_ITER (1-based iteration number) and
+                        RALPH_MAX_ITER (the max iterations value) are exported
+                        before the hook runs. Useful for per-iteration
+                        notifications or pre-flight checks.
 
 Notes:
   Credit exhaustion: if the Claude CLI fails with a credit/quota error,
@@ -103,6 +109,7 @@ RALPH_TIMEOUT=${RALPH_TIMEOUT:-}
 RALPH_ALLOWED_TOOLS=${RALPH_ALLOWED_TOOLS:-"Edit,Write,Bash,Read,Glob,Grep"}
 RALPH_BASE_BRANCH=${RALPH_BASE_BRANCH:-main}
 RALPH_LOG_KEEP=${RALPH_LOG_KEEP:-50}
+RALPH_ITER_HOOK=${RALPH_ITER_HOOK:-}
 
 validate_int MAX
 validate_int MAX_RETRIES
@@ -122,6 +129,10 @@ if [ "${RALPH_LOG_KEEP}" -gt 0 ]; then
 fi
 
 RUN_LOG="$LOGS_DIR/run_$(date +%Y%m%d_%H%M%S).log"
+
+if [ -n "$RALPH_ITER_HOOK" ]; then
+  echo "RALPH_ITER_HOOK is configured; will eval before each iteration." >> "$RUN_LOG"
+fi
 
 START_TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 START_TIME=$(date +%s)
@@ -175,6 +186,12 @@ for i in $(seq 1 "$MAX"); do
   echo "$ITER_HEADER" >> "$RUN_LOG"
 
   DONE_BEFORE=$(grep -c '^\[DONE\]' progress.txt 2>/dev/null) || DONE_BEFORE=0
+
+  if [ -n "$RALPH_ITER_HOOK" ]; then
+    export RALPH_CURRENT_ITER=$i
+    export RALPH_MAX_ITER=$MAX
+    eval "$RALPH_ITER_HOOK"
+  fi
 
   OUTPUT=""
   if ! ralph_run_main_call "$PROMPT"; then

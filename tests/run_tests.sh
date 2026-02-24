@@ -21,6 +21,7 @@
 #  16. RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=complete on COMPLETE signal
 #  17. docker-ralph.sh status delegates to ralph.sh on the host without invoking Docker
 #  18. docker-ralph.sh --dry-run delegates to ralph.sh on the host without invoking Docker
+#  19. RALPH_ITER_HOOK is eval'd with RALPH_CURRENT_ITER exported before the Claude invocation
 
 set -uo pipefail
 
@@ -483,6 +484,28 @@ MOCKEOF
     pass "docker-ralph.sh --dry-run delegates to ralph.sh on host and exits 0 without invoking Docker"
   else
     fail "docker-ralph.sh --dry-run: expected exit 0 and 'Next task:', got: $(echo "$output" | head -5) (exit $exit_code)"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Test 19: RALPH_ITER_HOOK is eval'd with RALPH_CURRENT_ITER exported
+# ---------------------------------------------------------------------------
+echo "Test 19: RALPH_ITER_HOOK writes RALPH_CURRENT_ITER to a file before Claude invocation"
+{
+  dir=$(setup_repo)
+  install_mock_claude_noop "$dir"
+  output=$(cd "$dir" && PATH="$dir/bin:$PATH" \
+    RALPH_MAX_STALLS=1 \
+    RALPH_NO_GIT=1 \
+    RALPH_ITER_HOOK='echo "$RALPH_CURRENT_ITER" > iter_hook_out.txt' \
+    bash "$RALPH_SH" 1 2>&1) || true
+  iter_value=""
+  [ -f "$dir/iter_hook_out.txt" ] && iter_value=$(cat "$dir/iter_hook_out.txt")
+  cleanup_repo "$dir"
+  if echo "$iter_value" | grep -q "^1$"; then
+    pass "RALPH_ITER_HOOK fires with RALPH_CURRENT_ITER=1 on the first iteration"
+  else
+    fail "RALPH_ITER_HOOK: expected '1' in iter_hook_out.txt, got '$iter_value'"
   fi
 }
 
