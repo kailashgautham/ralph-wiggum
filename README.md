@@ -147,6 +147,7 @@ Key variables accepted by both `ralph.sh` and `ralph-once.sh`:
 | `MAX_RETRIES` | `3` | Retry attempts on Claude CLI failure |
 | `RALPH_RETRY_DELAY` | `5` | Base delay in seconds between retries |
 | `RALPH_NO_GIT` | unset | Set to any non-empty value to skip all git operations (diff check, commit, push, and PR creation). Useful for local experimentation, environments without git configured, or when using a custom VCS workflow. |
+| `RALPH_NO_PR` | unset | If non-empty, skip PR creation and leave the branch on the remote for manual review. |
 
 `ralph.sh` also accepts:
 
