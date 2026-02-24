@@ -178,6 +178,7 @@ for i in $(seq 1 "$MAX"); do
     if [ "$STALL_COUNT" -ge "$RALPH_MAX_STALLS" ]; then
       STALL_EXIT_MSG="Error: Ralph has stalled for $RALPH_MAX_STALLS consecutive iterations without progress. Exiting."
       echo "$STALL_EXIT_MSG" | tee -a "$RUN_LOG"
+      print_run_summary "stall limit reached"
       exit 1
     fi
   else
