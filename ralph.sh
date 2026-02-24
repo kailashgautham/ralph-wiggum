@@ -46,73 +46,12 @@ fi
 
 # --- status subcommand ---
 if [ "${1:-}" = "status" ]; then
-  echo "=== Ralph Status ==="
-
-  if [ ! -f "PRD.md" ]; then
-    echo "Error: PRD.md not found." >&2
-    exit 1
-  fi
-
-  # Extract task descriptions from PRD.md (both unchecked and checked boxes)
-  mapfile -t ALL_TASKS < <(grep -E '^\- \[[ x]\] ' PRD.md | sed 's/^- \[[ x]\] //')
-
-  TOTAL=${#ALL_TASKS[@]}
-  COMPLETED=0
-  REMAINING=0
-  REMAINING_TASKS=()
-  COMPLETED_TASKS=()
-
-  for task in "${ALL_TASKS[@]}"; do
-    if grep -qxF "[DONE] $task" progress.txt 2>/dev/null; then
-      COMPLETED=$((COMPLETED + 1))
-      COMPLETED_TASKS+=("$task")
-    else
-      REMAINING=$((REMAINING + 1))
-      REMAINING_TASKS+=("$task")
-    fi
-  done
-
-  echo "Tasks: $TOTAL total, $COMPLETED completed, $REMAINING remaining"
-  echo ""
-
-  if [ ${#COMPLETED_TASKS[@]} -gt 0 ]; then
-    echo "Completed:"
-    for task in "${COMPLETED_TASKS[@]}"; do
-      echo "  [x] $task"
-    done
-    echo ""
-  fi
-
-  if [ ${#REMAINING_TASKS[@]} -gt 0 ]; then
-    echo "Remaining:"
-    for task in "${REMAINING_TASKS[@]}"; do
-      echo "  [ ] $task"
-    done
-  else
-    echo "All tasks complete!"
-  fi
-
-  exit 0
+  ralph_show_status
 fi
 
 # --- dry-run subcommand ---
 if [ "${1:-}" = "--dry-run" ]; then
-  if [ ! -f "PRD.md" ]; then
-    echo "Error: PRD.md not found." >&2
-    exit 1
-  fi
-
-  mapfile -t ALL_TASKS < <(grep -E '^\- \[[ x]\] ' PRD.md | sed 's/^- \[[ x]\] //')
-
-  for task in "${ALL_TASKS[@]}"; do
-    if ! grep -qxF "[DONE] $task" progress.txt 2>/dev/null; then
-      echo "Next task: $task"
-      exit 0
-    fi
-  done
-
-  echo "All tasks complete."
-  exit 0
+  ralph_next_task
 fi
 
 # --- pre-flight checks ---
