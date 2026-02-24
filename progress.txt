@@ -1,3 +1,5 @@
 # Progress Tracker
 # Each completed task is logged here by the agent.
 # Format: [DONE] Task description
+
+[DONE] Deduplicate retry/backoff logic in ralph_run_main_call and ralph_run_planning_call: both functions in ralph-lib.sh implement an almost identical while-loop with exponential backoff (differing only in whether output is tee'd to a tmpfile for capture or streamed directly to a log); extract a shared internal helper _ralph_invoke_claude_with_retry that accepts the claude command array and a "capture to file" flag, runs the retry loop including the credit-exhaustion branch, and returns exit_code; rewrite ralph_run_main_call and ralph_run_planning_call as thin wrappers that build their respective cmd arrays and delegate to the helper, eliminating the duplicated while/sleep/backoff code
