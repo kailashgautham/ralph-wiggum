@@ -19,6 +19,8 @@
 #  14. RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=stall on stall exit
 #  15. RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=max_iterations on max iterations exit
 #  16. RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=complete on COMPLETE signal
+#  17. docker-ralph.sh status delegates to ralph.sh on the host without invoking Docker
+#  18. docker-ralph.sh --dry-run delegates to ralph.sh on the host without invoking Docker
 
 set -uo pipefail
 
@@ -434,6 +436,53 @@ MOCKEOF
     pass "RALPH_COMPLETE_HOOK fires with RALPH_EXIT_REASON=complete when COMPLETE signal is detected"
   else
     fail "RALPH_COMPLETE_HOOK complete: expected 'complete' in hook file, got '$hook_contents'"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Test 17: docker-ralph.sh status delegates to ralph.sh on the host (no Docker invoked)
+# ---------------------------------------------------------------------------
+echo "Test 17: docker-ralph.sh status delegates to ralph.sh without invoking Docker"
+{
+  dir=$(setup_repo)
+  echo "[DONE] task alpha" >> "$dir/progress.txt"
+  mkdir -p "$dir/bin"
+  # Stub docker that always exits non-zero to prove Docker is never invoked
+  cat > "$dir/bin/docker" << 'MOCKEOF'
+#!/usr/bin/env bash
+exit 1
+MOCKEOF
+  chmod +x "$dir/bin/docker"
+  output=$(cd "$dir" && PATH="$dir/bin:$PATH" bash "$DOCKER_RALPH_SH" status 2>&1)
+  exit_code=$?
+  cleanup_repo "$dir"
+  if [ "$exit_code" -eq 0 ] && echo "$output" | grep -q "Ralph Status"; then
+    pass "docker-ralph.sh status delegates to ralph.sh on host and exits 0 without invoking Docker"
+  else
+    fail "docker-ralph.sh status: expected exit 0 and 'Ralph Status', got: $(echo "$output" | head -5) (exit $exit_code)"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Test 18: docker-ralph.sh --dry-run delegates to ralph.sh on the host (no Docker invoked)
+# ---------------------------------------------------------------------------
+echo "Test 18: docker-ralph.sh --dry-run delegates to ralph.sh without invoking Docker"
+{
+  dir=$(setup_repo)
+  mkdir -p "$dir/bin"
+  # Stub docker that always exits non-zero to prove Docker is never invoked
+  cat > "$dir/bin/docker" << 'MOCKEOF'
+#!/usr/bin/env bash
+exit 1
+MOCKEOF
+  chmod +x "$dir/bin/docker"
+  output=$(cd "$dir" && PATH="$dir/bin:$PATH" bash "$DOCKER_RALPH_SH" --dry-run 2>&1)
+  exit_code=$?
+  cleanup_repo "$dir"
+  if [ "$exit_code" -eq 0 ] && echo "$output" | grep -q "Next task:"; then
+    pass "docker-ralph.sh --dry-run delegates to ralph.sh on host and exits 0 without invoking Docker"
+  else
+    fail "docker-ralph.sh --dry-run: expected exit 0 and 'Next task:', got: $(echo "$output" | head -5) (exit $exit_code)"
   fi
 }
 
