@@ -62,6 +62,18 @@ EOF
   exit 0
 fi
 
+# --- status and --dry-run: run ralph.sh directly on the host (no Docker needed) ---
+if [ "${1:-}" = "status" ] || [ "${1:-}" = "--dry-run" ]; then
+  SUBCMD="${1}"
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  RALPH_SH="${SCRIPT_DIR}/ralph.sh"
+  if [ ! -f "$RALPH_SH" ]; then
+    echo "Error: ralph.sh not found in ${SCRIPT_DIR}." >&2
+    exit 1
+  fi
+  exec "$RALPH_SH" "$SUBCMD"
+fi
+
 # --- Input validation ---
 
 # Check Docker is installed
@@ -162,18 +174,6 @@ if [ "${1:-}" = "cleanup" ]; then
 
   echo "Cleanup complete."
   exit 0
-fi
-
-if [ "${1:-}" = "status" ] || [ "${1:-}" = "--dry-run" ]; then
-  SUBCMD="${1}"
-
-  # Build the image
-  docker build -q -t "$IMAGE_NAME" . > /dev/null
-
-  docker run --rm \
-    -v "$(pwd):/app:ro" \
-    "$IMAGE_NAME" ./ralph.sh "$SUBCMD"
-  exit $?
 fi
 
 # Check auth exists
