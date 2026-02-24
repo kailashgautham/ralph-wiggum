@@ -38,6 +38,11 @@ Environment variables:
                         on the remote for manual review
   RALPH_PLAN_PROMPT     Override the planning prompt used when all tasks are
                         complete (default: built-in review-and-rewrite prompt)
+  RALPH_COMPLETE_HOOK   Shell command executed (via eval) immediately before
+                        ralph.sh exits via any terminal path. RALPH_EXIT_REASON
+                        is exported as "complete" (all tasks done), "stall"
+                        (stall limit reached), or "max_iterations" (loop limit
+                        reached). Useful for notifications or cleanup.
 
 Examples:
   ./ralph.sh                  # Run up to 20 iterations
@@ -116,6 +121,16 @@ START_TIME=$(date +%s)
 CURRENT_ITER=0
 STALL_COUNT=0
 
+# _ralph_fire_hook EXIT_REASON
+# If RALPH_COMPLETE_HOOK is set, exports RALPH_EXIT_REASON=EXIT_REASON and
+# runs the hook via eval. Called immediately before each terminal exit.
+_ralph_fire_hook() {
+  if [ -n "${RALPH_COMPLETE_HOOK:-}" ]; then
+    export RALPH_EXIT_REASON="$1"
+    eval "$RALPH_COMPLETE_HOOK"
+  fi
+}
+
 handle_signal() {
   local sig="$1"
   local msg="=== Received $sig — shutting down gracefully after iteration $CURRENT_ITER/$MAX === $(date '+%Y-%m-%d %H:%M:%S') ==="
@@ -183,6 +198,7 @@ for i in $(seq 1 "$MAX"); do
       STALL_EXIT_MSG="Error: Ralph has stalled for $RALPH_MAX_STALLS consecutive iterations without progress. Exiting."
       echo "$STALL_EXIT_MSG" | tee -a "$RUN_LOG"
       print_run_summary "stall limit reached"
+      _ralph_fire_hook "stall"
       exit 1
     fi
   else
@@ -207,6 +223,7 @@ for i in $(seq 1 "$MAX"); do
 
   if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
     print_run_summary "all tasks complete"
+    _ralph_fire_hook "complete"
     ralph_handle_complete "iteration $i"
     continue
   fi
@@ -216,3 +233,4 @@ print_run_summary "max iterations reached"
 LIMIT_MSG="=== Reached max iterations ($MAX) without completion signal. ==="
 echo "$LIMIT_MSG"
 echo "$LIMIT_MSG" >> "$RUN_LOG"
+_ralph_fire_hook "max_iterations"

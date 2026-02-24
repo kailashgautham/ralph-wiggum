@@ -156,6 +156,7 @@ Key variables accepted by both `ralph.sh` and `ralph-once.sh`:
 |----------|---------|-------------|
 | `RALPH_MAX_STALLS` | `3` | Consecutive no-progress iterations before abort |
 | `RALPH_LOG_KEEP` | `50` | Number of log files to retain (0 = keep all) |
+| `RALPH_COMPLETE_HOOK` | unset | Shell command executed (via `eval`) immediately before any terminal exit. `RALPH_EXIT_REASON` is exported as `"complete"` (all tasks done and new tasks generated), `"stall"` (stall limit reached), or `"max_iterations"` (loop limit reached). Useful for notifications, e.g. `RALPH_COMPLETE_HOOK='curl -s -X POST "$WEBHOOK_URL" -d "{\"reason\":\"$RALPH_EXIT_REASON\"}"'`. |
 
 **Example — run without any git operations:**
 ```bash
